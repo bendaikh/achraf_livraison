@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "paths": {
+            "@/*": ["./resources/js/*"]
+        },
+        "jsx": "react-jsx",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "target": "ESNext"
+    },
+    "include": ["resources/js/**/*"]
+}
