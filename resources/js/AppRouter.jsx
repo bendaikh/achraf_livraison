@@ -6,6 +6,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Orders = lazy(() => import('./pages/Orders'));
 const Settings = lazy(() => import('./pages/Settings'));
 const StatusSettings = lazy(() => import('./pages/StatusSettings'));
+const Closing = lazy(() => import('./pages/Closing'));
 const OrderDetail = lazy(() => import('./pages/OrderDetail'));
 const Drivers = lazy(() => import('./pages/Drivers'));
 const Missions = lazy(() => import('./pages/Missions'));
@@ -31,7 +32,7 @@ export default function AppRouter() {
                     <Route path="commandes/:id" element={<OrderDetail />} />
                     <Route path="livreurs" element={<Drivers />} />
                     <Route path="missions" element={<Missions />} />
-                    <Route path="cloture" element={<PlaceholderPage />} />
+                    <Route path="cloture" element={<Closing />} />
                     <Route path="utilisateurs" element={<PlaceholderPage />} />
                     <Route path="parametres" element={<Settings />} />
                     <Route path="parametres/statuts" element={<StatusSettings />} />

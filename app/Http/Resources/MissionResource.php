@@ -31,6 +31,11 @@ class MissionResource extends JsonResource
             'note' => $this->note,
             'driver_price' => $this->driver_price !== null ? (float) $this->driver_price : null,
             'assigned_at' => $this->assigned_at?->toIso8601String(),
+            'closing_id' => $this->closing_id,
+            'histories' => $this->whenLoaded('histories', fn () => $this->histories->map(fn ($h) => [
+                'id' => $h->id, 'event' => $h->event, 'status' => $h->status, 'label' => $h->label,
+                'note' => $h->note, 'user_name' => $h->user?->name, 'created_at' => $h->created_at?->toIso8601String(),
+            ])),
             'completed_at' => $this->completed_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
         ];

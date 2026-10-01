@@ -241,9 +241,7 @@ class OrderWorkflow
         $mission = $order->missions()->where('type', 'livraison')->latest('id')->first();
         $target = self::MISSION_STATUS_BY_CATEGORY[$status->category] ?? null;
         if ($mission && $target && ! $mission->closing_id && $mission->status !== $target) {
-            $mission->status = $target;
-            $mission->completed_at = $target === 'terminee' ? ($mission->completed_at ?? now()) : null;
-            $mission->save();
+            $this->missions->changeStatus($mission, $target, "Statut commande : {$status->name}");
         }
 
         $type = $status->creates_mission_type;

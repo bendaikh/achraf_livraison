@@ -1,94 +1,50 @@
-import { Eye, MoreHorizontal } from 'lucide-react';
-import { recentOrders, statusLabels } from '../../data/dashboard';
+import { Link, useNavigate } from 'react-router-dom';
+import { formatDH, formatTime, formatDate } from '../../lib/format';
+import { Card, EmptyState } from '../ui';
+import { StatusBadge, ColorBadge } from '../ui/Badge';
+import { useMeta } from '../../context/MetaContext';
 
-export default function RecentOrders() {
+export default function RecentOrders({ orders, period }) {
+    const navigate = useNavigate();
+    const meta = useMeta();
+    const timeOf = (iso) => (period?.key === 'today' ? formatTime(iso) : `${formatDate(iso)} ${formatTime(iso)}`);
+    const status = (o) => (o.delivery_status ? <StatusBadge status={o.delivery_status} /> : <ColorBadge color={meta.confirmationMap[o.confirmation_status]?.color} label={meta.confirmationMap[o.confirmation_status]?.label} />);
+
     return (
-        <section className="rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/40">
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-                <div>
-                    <h2 className="text-base font-bold text-slate-900">Dernières commandes</h2>
-                    <p className="text-xs font-medium text-slate-400">Activité récente des commandes</p>
-                </div>
-                <button
-                    type="button"
-                    className="text-xs font-semibold text-blue-600 hover:text-blue-700"
-                >
+        <Card
+            title="Dernières commandes"
+            bodyClassName="p-0"
+            actions={
+                <Link to="/commandes" className="text-xs font-semibold text-blue-600 hover:text-blue-700">
                     Voir tout
-                </button>
-            </div>
-
-            <div className="overflow-x-auto">
-                <table className="min-w-full text-left text-sm">
-                    <thead>
-                        <tr className="border-b border-slate-100 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                            <th className="px-5 py-3">#</th>
-                            <th className="px-3 py-3">Client</th>
-                            <th className="px-3 py-3">Téléphone</th>
-                            <th className="px-3 py-3">Ville</th>
-                            <th className="px-3 py-3">Montant</th>
-                            <th className="px-3 py-3">Statut</th>
-                            <th className="px-3 py-3">Date</th>
-                            <th className="px-5 py-3 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {recentOrders.map((order) => {
-                            const status = statusLabels[order.status];
-
-                            return (
-                                <tr
-                                    key={order.id}
-                                    className="border-b border-slate-50 last:border-0 hover:bg-slate-50/70"
-                                >
-                                    <td className="whitespace-nowrap px-5 py-3.5 font-semibold text-slate-800">
-                                        #{order.id}
-                                    </td>
-                                    <td className="whitespace-nowrap px-3 py-3.5 font-medium text-slate-700">
-                                        {order.client}
-                                    </td>
-                                    <td className="whitespace-nowrap px-3 py-3.5 text-slate-500">
-                                        {order.phone}
-                                    </td>
-                                    <td className="whitespace-nowrap px-3 py-3.5 text-slate-500">
-                                        {order.city}
-                                    </td>
-                                    <td className="whitespace-nowrap px-3 py-3.5 font-semibold text-slate-800">
-                                        {order.amount} DH
-                                    </td>
-                                    <td className="whitespace-nowrap px-3 py-3.5">
-                                        <span
-                                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${status.className}`}
-                                        >
-                                            {status.label}
-                                        </span>
-                                    </td>
-                                    <td className="whitespace-nowrap px-3 py-3.5 text-slate-500">
-                                        {order.date}
-                                    </td>
-                                    <td className="whitespace-nowrap px-5 py-3.5">
-                                        <div className="flex items-center justify-end gap-1">
-                                            <button
-                                                type="button"
-                                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                                                aria-label="Voir"
-                                            >
-                                                <Eye className="h-4 w-4" />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                                                aria-label="Plus"
-                                            >
-                                                <MoreHorizontal className="h-4 w-4" />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
-        </section>
+                </Link>
+            }
+        >
+            {!orders?.length ? (
+                <EmptyState>Aucune donnée</EmptyState>
+            ) : (
+                <ul className="divide-y divide-slate-100">
+                    {orders.map((o) => (
+                        <li key={o.id}>
+                            <button type="button" onClick={() => navigate(`/commandes/${o.id}`)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 sm:px-5">
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-bold text-slate-800">{o.reference}</span>
+                                        <span className="text-[11px] text-slate-400">{timeOf(o.created_at)}</span>
+                                    </div>
+                                    <div className="truncate text-xs text-slate-500">
+                                        {o.customer_name} · {o.city || '—'}
+                                    </div>
+                                </div>
+                                <div className="flex flex-col items-end gap-1">
+                                    <span className="text-sm font-semibold text-slate-800">{formatDH(o.amount)}</span>
+                                    {status(o)}
+                                </div>
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </Card>
     );
 }

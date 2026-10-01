@@ -8,6 +8,12 @@ class DeliveryStatus extends Model
 {
     protected $fillable = ['name', 'code', 'color', 'icon', 'sort_order', 'is_active', 'category', 'required_fields', 'creates_mission_type'];
 
+    protected $attributes = [
+        'is_active' => true,
+        'sort_order' => 0,
+        'color' => '#64748b',
+    ];
+
     protected $casts = [
         'is_active' => 'boolean',
         'sort_order' => 'integer',

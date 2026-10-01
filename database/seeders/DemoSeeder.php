@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\DeliveryStatus;
 use App\Models\Driver;
 use App\Models\Order;
+use App\Services\ClosingService;
 use App\Services\MissionService;
 use App\Services\OrderWorkflow;
 use Illuminate\Database\Seeder;
@@ -21,7 +22,7 @@ class DemoSeeder extends Seeder
     {
         $workflow = app(OrderWorkflow::class);
         $missions = app(MissionService::class);
-        $now = Carbon::now();
+        $now = Carbon::now()->toImmutable();
 
         $yassine = Driver::create([
             'name' => 'Yassine Alaoui', 'phone' => '06 61 23 45 67', 'city' => 'Casablanca', 'vehicle' => 'Moto',
@@ -65,9 +66,12 @@ class DemoSeeder extends Seeder
         ];
 
         foreach ($rows as [$client, $phone, $city, $product, $amount, $source, $daysAgo, $hour, $scenario, $driver]) {
+            Carbon::setTestNow();
             $at = $now->copy()->subDays($daysAgo)->setTime($hour, rand(0, 59));
-            if ($at->isFuture()) {
-                $at = $now->copy()->subMinutes(rand(5, 90));
+            // Leave room for the simulated workflow steps (~2h40) so nothing lands in the future.
+            $latest = $now->copy()->subMinutes(170);
+            if ($at->gt($latest)) {
+                $at = $latest->copy()->subMinutes(rand(0, 20));
             }
             Carbon::setTestNow($at);
 
@@ -106,6 +110,11 @@ class DemoSeeder extends Seeder
             };
         }
 
+        // Karim's cash was closed yesterday evening (30 DH short) — shows closed amount & remaining.
+        Carbon::setTestNow($now->subDay()->setTime(20, 0));
+        $pending = app(ClosingService::class)->pending($karim->id);
+        app(ClosingService::class)->close($karim, max(0, $pending['cod'] - 30), 'Clôture de démonstration (30 DH manquants)');
+
         Carbon::setTestNow();
 
         // Standalone missions (ramassage / dépôt partenaire).
@@ -114,6 +123,6 @@ class DemoSeeder extends Seeder
         $missions->create(['type' => 'ramassage', 'driver_id' => $achraf->id, 'contact_name' => 'Atelier Couture Nour', 'phone' => '06 00 11 22 33', 'address' => '45, Rue Mozart', 'city' => 'Casablanca', 'items_description' => 'Robes', 'quantity' => 10, 'scheduled_date' => $now->copy()->subDay()->toDateString(), 'time_slot' => '14:00 - 16:00', 'cash_amount' => 300, 'cash_direction' => 'remit']);
         $missions->create(['type' => 'depot_partenaire', 'driver_id' => $yassine->id, 'contact_name' => 'Agence Ozone Maârif', 'address' => 'Bd Brahim Roudani', 'city' => 'Casablanca', 'items_description' => 'Colis villes éloignées', 'quantity' => 12, 'scheduled_date' => $today, 'time_slot' => '16:00 - 18:00']);
         $done = $missions->create(['type' => 'depot_partenaire', 'driver_id' => $karim->id, 'contact_name' => 'Speedaf Rabat Agdal', 'address' => 'Av. Fal Ould Oumeir', 'city' => 'Rabat', 'items_description' => 'Colis', 'quantity' => 4, 'scheduled_date' => $today]);
-        $done->update(['status' => 'terminee', 'completed_at' => now()]);
+        $missions->changeStatus($done, 'terminee');
     }
 }

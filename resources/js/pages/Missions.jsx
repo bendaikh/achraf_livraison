@@ -6,7 +6,9 @@ import { useMeta } from '../context/MetaContext';
 import { formatDH, formatDate } from '../lib/format';
 import { Alert, Button, Card, EmptyState, Input, PageHeader, Select, Spinner } from '../components/ui';
 import { ColorBadge } from '../components/ui/Badge';
-/* MISSION_IMPORTS */
+import { Plus } from 'lucide-react';
+import MissionDrawer from '../components/missions/MissionDrawer';
+import MissionDetail from '../components/missions/MissionDetail';
 
 const FILTER_KEYS = ['type', 'status', 'driver_id', 'date_from', 'date_to', 'q'];
 
@@ -16,7 +18,8 @@ export default function Missions() {
     const [missions, setMissions] = useState(null);
     const [total, setTotal] = useState(0);
     const [error, setError] = useState(null);
-    /* MISSION_STATE */
+    const [creating, setCreating] = useState(null);
+    const [detailId, setDetailId] = useState(null);
 
     const filters = Object.fromEntries(FILTER_KEYS.map((k) => [k, params.get(k) || '']));
 
@@ -59,7 +62,16 @@ export default function Missions() {
             <PageHeader
                 title={driverName ? `Missions de ${driverName}` : 'Missions'}
                 subtitle="Livraisons, ramassages, dépôts partenaires, retours et échanges."
-                actions={null /* MISSION_ACTIONS */}
+                actions={
+                    <>
+                        <Button onClick={() => setCreating('ramassage')}>
+                            <Plus className="h-4 w-4" /> Ramassage
+                        </Button>
+                        <Button onClick={() => setCreating('depot_partenaire')}>
+                            <Plus className="h-4 w-4" /> Dépôt partenaire
+                        </Button>
+                    </>
+                }
             />
 
             <Card bodyClassName="p-3 sm:p-4">
@@ -118,9 +130,9 @@ export default function Missions() {
                             <article key={m.id} className="rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm">
                                 <div className="flex items-start justify-between gap-2">
                                     <div className="min-w-0">
-                                        <div className="text-sm font-bold text-slate-900">
+                                        <button type="button" onClick={() => setDetailId(m.id)} className="text-left text-sm font-bold text-blue-700">
                                             {m.reference} · {meta.missionTypeMap[m.type]?.label}
-                                        </div>
+                                        </button>
                                         <div className="truncate text-xs text-slate-500">
                                             {m.contact_name} · {m.city || '—'}
                                         </div>
@@ -167,7 +179,9 @@ export default function Missions() {
                                     {missions.map((m) => (
                                         <tr key={m.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/70">
                                             <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-800">
-                                                {m.reference}
+                                                <button type="button" onClick={() => setDetailId(m.id)} className="font-semibold text-blue-700 hover:underline">
+                                                    {m.reference}
+                                                </button>
                                                 {m.order_id ? (
                                                     <Link to={`/commandes/${m.order_id}`} className="block text-xs font-medium text-blue-600">
                                                         {m.order_reference}
@@ -212,7 +226,16 @@ export default function Missions() {
                     </Card>
                 </>
             )}
-            {/* MISSION_DRAWERS */}
+            <MissionDrawer
+                type={creating}
+                open={!!creating}
+                onClose={() => setCreating(null)}
+                onCreated={() => {
+                    setCreating(null);
+                    load();
+                }}
+            />
+            <MissionDetail missionId={detailId} onClose={() => setDetailId(null)} onChanged={load} />
         </div>
     );
 }

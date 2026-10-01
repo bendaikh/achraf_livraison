@@ -46,7 +46,6 @@ export const modules = [
         label: 'WhatsApp',
         to: '/whatsapp',
         icon: MessageCircle,
-        badge: 12,
         tabs: [{ to: '/whatsapp', label: 'Messagerie' }],
     },
     {

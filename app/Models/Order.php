@@ -10,7 +10,14 @@ class Order extends Model
         'reference', 'product_name', 'product_image', 'quantity', 'customer_name', 'customer_phone',
         'city', 'address', 'amount', 'payment_method', 'confirmation_status', 'delivery_status_id',
         'driver_id', 'carrier', 'assigned_user_id', 'source', 'note', 'status_reason', 'postponed_at',
-        'collected_amount', 'confirmed_at', 'delivered_at', 'status_changed_at',
+        'collected_amount', 'confirmed_at', 'delivered_at', 'status_changed_at', 'closing_id',
+    ];
+
+    protected $attributes = [
+        'quantity' => 1,
+        'payment_method' => 'cod',
+        'confirmation_status' => 'a_confirmer',
+        'amount' => 0,
     ];
 
     protected $casts = [

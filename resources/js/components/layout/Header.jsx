@@ -1,8 +1,11 @@
 import { Bell, Menu, Search } from 'lucide-react';
 import { useSidebar } from './SidebarContext';
+import { useMeta } from '../../context/MetaContext';
 
 export default function Header() {
     const { toggleMobile } = useSidebar();
+    const { currentUser } = useMeta();
+    const userName = currentUser?.name || '';
 
     return (
         <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-slate-200/80 bg-white/90 px-3 backdrop-blur-md sm:h-16 sm:gap-4 sm:px-6">
@@ -42,17 +45,14 @@ export default function Header() {
                     aria-label="Notifications"
                 >
                     <Bell className="h-[18px] w-[18px]" />
-                    <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white ring-2 ring-white">
-                        3
-                    </span>
                 </button>
 
                 <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white py-1.5 pl-1.5 pr-1.5 sm:pr-3">
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-bold text-white">
-                        B
+                        {userName.charAt(0).toUpperCase()}
                     </div>
                     <div className="hidden leading-tight md:block">
-                        <div className="text-sm font-semibold text-slate-800">Brahim</div>
+                        <div className="text-sm font-semibold text-slate-800">{userName}</div>
                         <div className="text-[11px] font-medium text-slate-400">Super Admin</div>
                     </div>
                 </div>

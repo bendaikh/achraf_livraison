@@ -17,7 +17,12 @@ class Mission extends Model
     protected $fillable = [
         'reference', 'type', 'status', 'order_id', 'driver_id', 'contact_name', 'phone', 'address', 'city',
         'items_description', 'quantity', 'scheduled_date', 'time_slot', 'cash_amount', 'cash_direction',
-        'note', 'completed_at', 'driver_price', 'assigned_at',
+        'note', 'completed_at', 'driver_price', 'assigned_at', 'closing_id',
+    ];
+
+    protected $attributes = [
+        'quantity' => 1,
+        'status' => 'a_faire',
     ];
 
     protected $casts = [
@@ -48,5 +53,10 @@ class Mission extends Model
     public function order()
     {
         return $this->belongsTo(Order::class);
+    }
+
+    public function histories()
+    {
+        return $this->hasMany(MissionStatusHistory::class)->orderByDesc('created_at')->orderByDesc('id');
     }
 }

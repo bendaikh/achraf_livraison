@@ -47,7 +47,7 @@ class MissionController extends Controller
 
     public function show(Mission $mission)
     {
-        return new MissionResource($mission->load(['driver', 'order']));
+        return new MissionResource($mission->load(['driver', 'order', 'histories.user']));
     }
 
     public function store(Request $request)
@@ -76,12 +76,13 @@ class MissionController extends Controller
 
     public function changeStatus(Request $request, Mission $mission)
     {
-        $data = $request->validate(['status' => ['required', Rule::in(array_keys(Catalog::MISSION_STATUSES))]]);
-        $mission->status = $data['status'];
-        $mission->completed_at = $data['status'] === 'terminee' ? ($mission->completed_at ?? now()) : null;
-        $mission->save();
+        $data = $request->validate([
+            'status' => ['required', Rule::in(array_keys(Catalog::MISSION_STATUSES))],
+            'note' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $this->service->changeStatus($mission, $data['status'], $data['note'] ?? null);
 
-        return new MissionResource($mission->load(['driver', 'order']));
+        return new MissionResource($mission->fresh()->load(['driver', 'order', 'histories.user']));
     }
 
     protected function rules(): array

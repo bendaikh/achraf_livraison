@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\ClosingController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DeliveryStatusController;
 use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\MetaController;
@@ -13,6 +15,7 @@ use Illuminate\Support\Facades\Route;
 | JSON API consumed by the React SPA. No authentication yet (see CurrentUser).
 */
 Route::get('meta', [MetaController::class, 'show']);
+Route::get('dashboard', [DashboardController::class, 'show']);
 
 Route::get('settings', [SettingsController::class, 'show']);
 Route::put('settings', [SettingsController::class, 'update']);
@@ -46,3 +49,8 @@ Route::post('missions/{mission}/status', [MissionController::class, 'changeStatu
 // Per-user UI preferences (current user = auth user, else user #1).
 Route::get('preferences/{key}', [PreferenceController::class, 'show']);
 Route::put('preferences/{key}', [PreferenceController::class, 'update']);
+
+// Clôture du jour (caisse livreurs)
+Route::get('closings', [ClosingController::class, 'index']);
+Route::get('closings/pending', [ClosingController::class, 'pending']);
+Route::post('closings', [ClosingController::class, 'store']);
