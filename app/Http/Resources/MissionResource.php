@@ -29,6 +29,8 @@ class MissionResource extends JsonResource
             'cash_amount' => $this->cash_amount !== null ? (float) $this->cash_amount : null,
             'cash_direction' => $this->cash_direction,
             'note' => $this->note,
+            'driver_price' => $this->driver_price !== null ? (float) $this->driver_price : null,
+            'assigned_at' => $this->assigned_at?->toIso8601String(),
             'completed_at' => $this->completed_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
         ];

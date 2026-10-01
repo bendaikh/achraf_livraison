@@ -18,6 +18,7 @@ class DriverResource extends JsonResource
             'vehicle' => $this->vehicle,
             'is_active' => $this->is_active,
             'notes' => $this->notes,
+            'tariffs' => $this->tariffs(),
             'stats' => $this->when(isset($this->stats), fn () => $this->stats),
             'created_at' => $this->created_at?->toIso8601String(),
         ];

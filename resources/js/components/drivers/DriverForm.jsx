@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react';
 import api, { errorMessage, fieldErrors } from '../../lib/api';
+import { useMeta } from '../../context/MetaContext';
 import { Alert, Button, Drawer, Field, Input, Textarea } from '../ui';
 
 const EMPTY = { name: '', phone: '', email: '', city: '', vehicle: '', is_active: true, notes: '' };
 
-export default function DriverForm({ open, driver, onClose, onSaved }) {
+function tariffsToForm(tariffs = {}) {
+    return Object.fromEntries(Object.entries(tariffs || {}).map(([type, v]) => [`tariff_${type}`, v ?? '']));
+}
+
+export default function DriverForm({ open, driver, onClose, onSaved, focusTariffs = false }) {
+    const meta = useMeta();
     const [form, setForm] = useState(EMPTY);
     const [errors, setErrors] = useState({});
     const [error, setError] = useState(null);
@@ -14,8 +20,10 @@ export default function DriverForm({ open, driver, onClose, onSaved }) {
         if (!open) return;
         setErrors({});
         setError(null);
-        setForm(driver ? { ...EMPTY, ...driver } : EMPTY);
-    }, [open, driver]);
+        // New driver: tariffs prefilled with the company defaults (Paramètres), still editable.
+        setForm(driver ? { ...EMPTY, ...driver, ...tariffsToForm(driver.tariffs) } : { ...EMPTY, ...tariffsToForm(meta.defaultTariffs) });
+        if (focusTariffs) setTimeout(() => document.getElementById('driver-tariffs')?.scrollIntoView({ behavior: 'smooth' }), 50);
+    }, [open, driver, meta.defaultTariffs, focusTariffs]);
 
     const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
 
@@ -25,7 +33,11 @@ export default function DriverForm({ open, driver, onClose, onSaved }) {
         setErrors({});
         setError(null);
         try {
-            const payload = { ...form };
+            const { tariffs, stats, created_at, id, ...payload } = form; // eslint-disable-line no-unused-vars
+            meta.missionTypes.forEach((t) => {
+                const k = `tariff_${t.value}`;
+                payload[k] = payload[k] === '' || payload[k] === undefined ? null : Number(payload[k]);
+            });
             const { data } = driver ? await api.put(`/drivers/${driver.id}`, payload) : await api.post('/drivers', payload);
             onSaved?.(data.data);
         } catch (err) {
@@ -78,7 +90,29 @@ export default function DriverForm({ open, driver, onClose, onSaved }) {
                     </label>
                 </section>
 
-                {/* TARIFS_SECTION */}
+                <section id="driver-tariffs" className="space-y-3 rounded-2xl border border-blue-100 bg-blue-50/40 p-3">
+                    <div>
+                        <h3 className="text-sm font-bold text-slate-800">Tarifs des missions</h3>
+                        <p className="text-[11px] text-slate-500">
+                            {driver
+                                ? 'Montant payé au livreur par mission. Une modification ne s’applique qu’aux nouvelles missions attribuées.'
+                                : 'Préremplis avec les tarifs par défaut de la société — modifiables pour ce livreur.'}
+                        </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        {meta.missionTypes.map((t) => {
+                            const k = `tariff_${t.value}`;
+                            return (
+                                <Field key={k} label={t.label} error={errors[k]}>
+                                    <div className="relative">
+                                        <Input type="number" min="0" step="0.5" value={form[k] ?? ''} onChange={set(k)} className="pr-10" />
+                                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">DH</span>
+                                    </div>
+                                </Field>
+                            );
+                        })}
+                    </div>
+                </section>
 
                 <Field label="Notes" error={errors.notes}>
                     <Textarea value={form.notes || ''} onChange={set('notes')} />

@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\DeliveryStatusResource;
 use App\Models\DeliveryStatus;
 use App\Models\Driver;
+use App\Models\Setting;
+use App\Models\User;
 use App\Support\Catalog;
 use App\Support\CurrentUser;
 
@@ -24,6 +26,8 @@ class MetaController extends Controller
             'mission_statuses' => Catalog::toOptions(Catalog::MISSION_STATUSES),
             'payment_methods' => Catalog::toOptions(Catalog::PAYMENT_METHODS),
             'drivers' => Driver::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'default_tariffs' => Setting::defaultTariffs(),
+            'users' => User::query()->orderBy('name')->get(['id', 'name']),
             'current_user' => $user ? ['id' => $user->id, 'name' => $user->name] : null,
         ]);
     }

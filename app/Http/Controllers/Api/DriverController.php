@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\DriverResource;
 use App\Models\Driver;
+use App\Models\Setting;
 use Illuminate\Http\Request;
 
 class DriverController extends Controller
@@ -29,14 +30,29 @@ class DriverController extends Controller
 
     public function store(Request $request)
     {
-        $driver = Driver::create($this->validated($request));
+        $data = $this->validated($request);
+        // Company default tariffs prefill anything not provided for a new driver.
+        foreach (Setting::defaultTariffs() as $type => $amount) {
+            $column = Driver::TARIFF_COLUMNS[$type];
+            if (! isset($data[$column]) || $data[$column] === null || $data[$column] === '') {
+                $data[$column] = $amount;
+            }
+        }
+        $driver = Driver::create($data);
 
         return (new DriverResource($driver))->response()->setStatusCode(201);
     }
 
     public function update(Request $request, Driver $driver)
     {
-        $driver->update($this->validated($request, true));
+        $data = $this->validated($request, true);
+        foreach (Driver::TARIFF_COLUMNS as $column) {
+            if (array_key_exists($column, $data) && $data[$column] === null) {
+                $data[$column] = 0;
+            }
+        }
+        // Only the driver row changes: missions keep their own price snapshot.
+        $driver->update($data);
 
         return new DriverResource($driver->fresh());
     }
@@ -51,6 +67,11 @@ class DriverController extends Controller
             'vehicle' => ['nullable', 'string', 'max:100'],
             'is_active' => ['sometimes', 'boolean'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'tariff_livraison' => ['nullable', 'numeric', 'min:0', 'max:100000'],
+            'tariff_ramassage' => ['nullable', 'numeric', 'min:0', 'max:100000'],
+            'tariff_depot_partenaire' => ['nullable', 'numeric', 'min:0', 'max:100000'],
+            'tariff_retour' => ['nullable', 'numeric', 'min:0', 'max:100000'],
+            'tariff_echange' => ['nullable', 'numeric', 'min:0', 'max:100000'],
         ]);
     }
 }

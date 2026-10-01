@@ -17,12 +17,14 @@ class Mission extends Model
     protected $fillable = [
         'reference', 'type', 'status', 'order_id', 'driver_id', 'contact_name', 'phone', 'address', 'city',
         'items_description', 'quantity', 'scheduled_date', 'time_slot', 'cash_amount', 'cash_direction',
-        'note', 'completed_at',
+        'note', 'completed_at', 'driver_price', 'assigned_at',
     ];
 
     protected $casts = [
         'scheduled_date' => 'date:Y-m-d',
         'completed_at' => 'datetime',
+        'assigned_at' => 'datetime',
+        'driver_price' => 'decimal:2',
         'cash_amount' => 'decimal:2',
         'quantity' => 'integer',
     ];

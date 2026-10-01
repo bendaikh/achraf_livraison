@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\MissionResource;
 use App\Models\Mission;
+use App\Services\MissionService;
 use App\Support\Catalog;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class MissionController extends Controller
 {
+    public function __construct(protected MissionService $service) {}
+
     public function index(Request $request)
     {
         $q = Mission::query()->with(['driver', 'order']);
@@ -50,9 +53,25 @@ class MissionController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate($this->rules());
-        $mission = Mission::create($data + ['status' => 'a_faire']);
+        $mission = $this->service->create($data);
 
         return (new MissionResource($mission->fresh()->load(['driver', 'order'])))->response()->setStatusCode(201);
+    }
+
+    public function update(Request $request, Mission $mission)
+    {
+        $rules = $this->rules();
+        unset($rules['type']);
+        $rules['contact_name'] = ['sometimes', 'string', 'max:255'];
+        $data = $request->validate($rules);
+
+        if (array_key_exists('driver_id', $data)) {
+            $this->service->assign($mission, $data['driver_id'] ? (int) $data['driver_id'] : null);
+            unset($data['driver_id']);
+        }
+        $mission->fill($data)->save();
+
+        return new MissionResource($mission->fresh()->load(['driver', 'order']));
     }
 
     public function changeStatus(Request $request, Mission $mission)

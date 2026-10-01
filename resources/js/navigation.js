@@ -72,7 +72,7 @@ export const modules = [
         label: 'Paramètres',
         to: '/parametres',
         icon: Settings,
-        tabs: [{ to: '/parametres', label: 'Paramètres' }],
+        tabs: [{ to: '/parametres', label: 'Société & tarifs', end: true }],
     },
 ];
 

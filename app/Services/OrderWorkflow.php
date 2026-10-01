@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\DeliveryStatus;
+use App\Models\Mission;
 use App\Models\Order;
 use App\Models\Setting;
 use Illuminate\Support\Facades\DB;
@@ -48,6 +49,7 @@ class OrderWorkflow
         return DB::transaction(function () use ($order, $driverId) {
             $order->driver_id = $driverId;
             $order->save();
+            $this->syncDeliveryMission($order, $driverId);
 
             $current = $order->deliveryStatus;
             if ($driverId && (! $current || $current->category === 'avant_livraison')) {
@@ -60,6 +62,38 @@ class OrderWorkflow
 
             return $order;
         });
+    }
+
+    /**
+     * Assigning a driver to an order creates (or re-assigns) its "livraison" mission,
+     * which snapshots the driver's current Livraison tariff.
+     */
+    protected function syncDeliveryMission(Order $order, ?int $driverId): void
+    {
+        $missions = app(MissionService::class);
+        $mission = $order->missions()->where('type', 'livraison')->latest('id')->first();
+
+        if (! $mission) {
+            if (! $driverId) {
+                return;
+            }
+            $mission = Mission::create([
+                'type' => 'livraison',
+                'status' => 'a_faire',
+                'order_id' => $order->id,
+                'contact_name' => $order->customer_name,
+                'phone' => $order->customer_phone,
+                'address' => $order->address,
+                'city' => $order->city,
+                'items_description' => $order->product_name,
+                'quantity' => $order->quantity,
+                'scheduled_date' => now()->toDateString(),
+                'cash_amount' => $order->payment_method === 'cod' ? $order->amount : null,
+                'cash_direction' => $order->payment_method === 'cod' ? 'collect' : null,
+            ]);
+        }
+
+        $missions->assign($mission, $driverId);
     }
 
     public function changeStatus(Order $order, DeliveryStatus $status, array $data = []): Order

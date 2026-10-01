@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Pencil, Phone, Plus, Search, ListChecks } from 'lucide-react';
+import { Pencil, Phone, Plus, Search, ListChecks, Wallet } from 'lucide-react';
 import api, { errorMessage } from '../lib/api';
 import { useMeta } from '../context/MetaContext';
-import { initials } from '../lib/format';
+import { formatDH, initials } from '../lib/format';
 import { Alert, Button, EmptyState, Input, PageHeader, Spinner } from '../components/ui';
 import DriverForm from '../components/drivers/DriverForm';
 
@@ -15,6 +15,7 @@ export default function Drivers() {
     const [q, setQ] = useState('');
     const [error, setError] = useState(null);
     const [editing, setEditing] = useState(null); // null closed, {} new, driver object edit
+    const [focusTariffs, setFocusTariffs] = useState(false);
 
     const load = useCallback(async () => {
         try {
@@ -36,7 +37,7 @@ export default function Drivers() {
                 title="Livreurs"
                 subtitle="Gérez vos livreurs, leurs informations et leurs tarifs de missions."
                 actions={
-                    <Button onClick={() => setEditing({})}>
+                    <Button onClick={() => { setFocusTariffs(false); setEditing({}); }}>
                         <Plus className="h-4 w-4" /> Ajouter un livreur
                     </Button>
                 }
@@ -82,10 +83,25 @@ export default function Drivers() {
                                     </div>
                                 </div>
                             </div>
-                            {/* DRIVER_TARIFS */}
+                            <div className="mt-3 rounded-xl bg-slate-50 p-2.5">
+                                <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">Tarifs des missions</div>
+                                <dl className="grid grid-cols-3 gap-x-2 gap-y-1.5 sm:grid-cols-5">
+                                    {meta.missionTypes.map((t) => (
+                                        <div key={t.value} className="min-w-0">
+                                            <dt className="truncate text-[10px] font-medium text-slate-500" title={t.label}>
+                                                {t.label}
+                                            </dt>
+                                            <dd className="text-sm font-bold text-slate-800">{formatDH(d.tariffs?.[t.value])}</dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                            </div>
                             <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-                                <Button size="sm" variant="secondary" onClick={() => setEditing(d)}>
+                                <Button size="sm" variant="secondary" onClick={() => { setFocusTariffs(false); setEditing(d); }}>
                                     <Pencil className="h-3.5 w-3.5" /> Modifier
+                                </Button>
+                                <Button size="sm" variant="secondary" onClick={() => { setFocusTariffs(true); setEditing(d); }}>
+                                    <Wallet className="h-3.5 w-3.5" /> Tarifs
                                 </Button>
                                 <Link
                                     to={`/missions?driver_id=${d.id}`}
@@ -102,6 +118,7 @@ export default function Drivers() {
             <DriverForm
                 open={editing !== null}
                 driver={editing && editing.id ? editing : null}
+                focusTariffs={focusTariffs}
                 onClose={() => setEditing(null)}
                 onSaved={() => {
                     setEditing(null);

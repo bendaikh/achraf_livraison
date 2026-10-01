@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\MetaController;
 use App\Http\Controllers\Api\MissionController;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\PreferenceController;
 use App\Http\Controllers\Api\SettingsController;
 use Illuminate\Support\Facades\Route;
 
@@ -30,4 +31,9 @@ Route::put('drivers/{driver}', [DriverController::class, 'update']);
 Route::get('missions', [MissionController::class, 'index']);
 Route::post('missions', [MissionController::class, 'store']);
 Route::get('missions/{mission}', [MissionController::class, 'show']);
+Route::put('missions/{mission}', [MissionController::class, 'update']);
 Route::post('missions/{mission}/status', [MissionController::class, 'changeStatus']);
+
+// Per-user UI preferences (current user = auth user, else user #1).
+Route::get('preferences/{key}', [PreferenceController::class, 'show']);
+Route::put('preferences/{key}', [PreferenceController::class, 'update']);
