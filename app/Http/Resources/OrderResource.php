@@ -40,6 +40,8 @@ class OrderResource extends JsonResource
             'status_changed_at' => $this->status_changed_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
             'missions' => MissionResource::collection($this->whenLoaded('missions')),
+            'histories' => OrderStatusHistoryResource::collection($this->whenLoaded('histories')),
+            'allowed_status_ids' => $this->when($this->relationLoaded('histories'), fn () => app(\App\Services\OrderWorkflow::class)->allowedStatusIds($this->resource)),
         ];
     }
 }

@@ -24,6 +24,8 @@ class MetaController extends Controller
             'confirmation_statuses' => Catalog::toOptions(Catalog::CONFIRMATION_STATUSES),
             'mission_types' => Catalog::toOptions(Catalog::MISSION_TYPES),
             'mission_statuses' => Catalog::toOptions(Catalog::MISSION_STATUSES),
+            'required_field_catalog' => Catalog::toOptions(Catalog::REQUIRED_FIELDS),
+            'status_mission_types' => Catalog::STATUS_MISSION_TYPES,
             'payment_methods' => Catalog::toOptions(Catalog::PAYMENT_METHODS),
             'drivers' => Driver::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'default_tariffs' => Setting::defaultTariffs(),

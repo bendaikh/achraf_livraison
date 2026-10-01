@@ -43,8 +43,11 @@ export default function StatusChangeForm({ order, onChanged }) {
             setForm((f) => ({ ...f, reason: '', note: '', collected_amount: '' }));
             onChanged?.(data.data);
         } catch (err) {
-            setErrors(fieldErrors(err));
-            setError(errorMessage(err));
+            const fe = fieldErrors(err);
+            setErrors(fe);
+            // Field-level messages are shown next to their inputs; others in the alert.
+            const shown = ['reason', 'postponed_date', 'postponed_time', 'collected_amount', 'note'];
+            setError(Object.keys(fe).some((k) => shown.includes(k)) ? null : errorMessage(err));
         } finally {
             setSaving(false);
         }

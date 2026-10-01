@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\DeliveryStatusController;
 use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\MetaController;
 use App\Http\Controllers\Api\MissionController;
@@ -15,6 +16,14 @@ Route::get('meta', [MetaController::class, 'show']);
 
 Route::get('settings', [SettingsController::class, 'show']);
 Route::put('settings', [SettingsController::class, 'update']);
+
+// Paramètres → Statuts de livraison
+Route::get('delivery-statuses', [DeliveryStatusController::class, 'index']);
+Route::post('delivery-statuses', [DeliveryStatusController::class, 'store']);
+Route::put('delivery-statuses/{deliveryStatus}', [DeliveryStatusController::class, 'update']);
+Route::delete('delivery-statuses/{deliveryStatus}', [DeliveryStatusController::class, 'destroy']);
+Route::put('delivery-statuses/{deliveryStatus}/transitions', [DeliveryStatusController::class, 'updateTransitions']);
+Route::get('status-transitions', [DeliveryStatusController::class, 'transitions']);
 
 Route::get('orders', [OrderController::class, 'index']);
 Route::post('orders', [OrderController::class, 'store']);

@@ -52,4 +52,9 @@ class Order extends Model
     {
         return $this->hasMany(Mission::class);
     }
+
+    public function histories()
+    {
+        return $this->hasMany(OrderStatusHistory::class)->orderByDesc('created_at')->orderByDesc('id');
+    }
 }

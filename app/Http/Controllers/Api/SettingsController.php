@@ -18,6 +18,9 @@ class SettingsController extends Controller
         $data = $request->validate([
             'company_name' => ['sometimes', 'string', 'max:255'],
             'confirmation_alert_hours' => ['sometimes', 'integer', 'min:1', 'max:720'],
+            'enforce_status_transitions' => ['sometimes', 'boolean'],
+            'status_on_confirm_id' => ['sometimes', 'nullable', 'integer', 'exists:delivery_statuses,id'],
+            'status_on_assign_id' => ['sometimes', 'nullable', 'integer', 'exists:delivery_statuses,id'],
             'default_tariffs' => ['sometimes', 'array'],
             'default_tariffs.livraison' => ['required_with:default_tariffs', 'numeric', 'min:0'],
             'default_tariffs.ramassage' => ['required_with:default_tariffs', 'numeric', 'min:0'],
@@ -43,6 +46,9 @@ class SettingsController extends Controller
             'company_name' => Setting::getValue('company_name'),
             'confirmation_alert_hours' => (int) Setting::getValue('confirmation_alert_hours'),
             'default_tariffs' => Setting::defaultTariffs(),
+            'enforce_status_transitions' => (bool) Setting::getValue('enforce_status_transitions', false),
+            'status_on_confirm_id' => Setting::getValue('status_on_confirm_id'),
+            'status_on_assign_id' => Setting::getValue('status_on_assign_id'),
         ];
     }
 }

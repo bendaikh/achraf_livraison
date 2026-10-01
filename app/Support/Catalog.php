@@ -49,6 +49,17 @@ class Catalog
         'annulee' => ['label' => 'Annulée', 'color' => '#64748b', 'open' => false],
     ];
 
+    /** Extra information a status can require when an order enters it (configurable per status). */
+    public const REQUIRED_FIELDS = [
+        'postponed_at' => 'Date et heure de report',
+        'reason' => 'Motif',
+        'collected_amount' => 'Montant encaissé',
+        'note' => 'Commentaire',
+    ];
+
+    /** Mission types a status may generate automatically for the order's driver. */
+    public const STATUS_MISSION_TYPES = ['retour', 'echange'];
+
     public const PAYMENT_METHODS = [
         'cod' => 'À la livraison (COD)',
         'paye' => 'Déjà payé',

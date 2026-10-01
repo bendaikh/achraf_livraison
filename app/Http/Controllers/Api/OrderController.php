@@ -114,7 +114,13 @@ class OrderController extends Controller
         ]);
         $status = DeliveryStatus::findOrFail($data['delivery_status_id']);
         if (! empty($data['postponed_date'])) {
-            $data['postponed_at'] = Carbon::parse($data['postponed_date'].' '.($data['postponed_time'] ?? '09:00'));
+            if (in_array('postponed_at', $status->requiredFields(), true) && empty($data['postponed_time'])) {
+                return response()->json([
+                    'message' => "L'heure de report est obligatoire.",
+                    'errors' => ['postponed_time' => ["L'heure de report est obligatoire."]],
+                ], 422);
+            }
+            $data['postponed_at'] = Carbon::parse($data['postponed_date'].' '.($data['postponed_time'] ?? '09:00'))->format('Y-m-d H:i');
         }
         $this->workflow->changeStatus($order, $status, $data);
 
@@ -123,7 +129,7 @@ class OrderController extends Controller
 
     protected function detailRelations(): array
     {
-        return ['deliveryStatus', 'driver', 'assignedUser', 'missions.driver'];
+        return ['deliveryStatus', 'driver', 'assignedUser', 'missions.driver', 'histories.user'];
     }
 
     protected function validated(Request $request, bool $partial = false): array

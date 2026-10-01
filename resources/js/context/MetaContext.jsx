@@ -39,6 +39,7 @@ export function MetaProvider({ children }) {
             missionStatuses: m.mission_statuses || [],
             paymentMethods: m.payment_methods || [],
             requiredFieldCatalog: m.required_field_catalog || [],
+            statusMissionTypes: m.status_mission_types || [],
             drivers: m.drivers || [],
             defaultTariffs: m.default_tariffs || null,
             currentUser: m.current_user || null,

@@ -5,6 +5,7 @@ import AppLayout from './components/layout/AppLayout';
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Orders = lazy(() => import('./pages/Orders'));
 const Settings = lazy(() => import('./pages/Settings'));
+const StatusSettings = lazy(() => import('./pages/StatusSettings'));
 const OrderDetail = lazy(() => import('./pages/OrderDetail'));
 const Drivers = lazy(() => import('./pages/Drivers'));
 const Missions = lazy(() => import('./pages/Missions'));
@@ -33,6 +34,7 @@ export default function AppRouter() {
                     <Route path="cloture" element={<PlaceholderPage />} />
                     <Route path="utilisateurs" element={<PlaceholderPage />} />
                     <Route path="parametres" element={<Settings />} />
+                    <Route path="parametres/statuts" element={<StatusSettings />} />
                     <Route path="integrations/ozone" element={<PlaceholderPage />} />
                     <Route path="integrations/speedaf" element={<PlaceholderPage />} />
                     <Route path="integrations/libromart" element={<PlaceholderPage />} />
