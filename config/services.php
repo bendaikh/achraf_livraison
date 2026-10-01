@@ -35,4 +35,19 @@ return [
         ],
     ],
 
+    'shopify' => [
+        'client_id' => env('SHOPIFY_CLIENT_ID'),
+        'client_secret' => env('SHOPIFY_CLIENT_SECRET'),
+        'scopes' => env('SHOPIFY_SCOPES', 'read_orders,read_customers'),
+        'api_version' => env('SHOPIFY_API_VERSION', '2025-01'),
+    ],
+
+    'meta' => [
+        'app_id' => env('META_APP_ID'),
+        'app_secret' => env('META_APP_SECRET'),
+        'config_id' => env('META_EMBEDDED_SIGNUP_CONFIG_ID'),
+        'webhook_verify_token' => env('META_WEBHOOK_VERIFY_TOKEN'),
+        'graph_api_version' => env('META_GRAPH_API_VERSION', 'v21.0'),
+    ],
+
 ];

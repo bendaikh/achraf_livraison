@@ -1,8 +1,44 @@
-import { Bell, Menu, Search } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Bell, ChevronDown, LogOut, Menu, Search, UserRound } from 'lucide-react';
 import { useSidebar } from './SidebarContext';
+import { useAuth } from '../../contexts/AuthContext';
+
+function initials(name = '') {
+    return name
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase() ?? '')
+        .join('') || '?';
+}
 
 export default function Header() {
     const { toggleMobile } = useSidebar();
+    const { user, logout } = useAuth();
+    const navigate = useNavigate();
+    const [menuOpen, setMenuOpen] = useState(false);
+    const menuRef = useRef(null);
+
+    useEffect(() => {
+        function onClickOutside(event) {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                setMenuOpen(false);
+            }
+        }
+
+        document.addEventListener('mousedown', onClickOutside);
+        return () => document.removeEventListener('mousedown', onClickOutside);
+    }, []);
+
+    async function handleLogout() {
+        setMenuOpen(false);
+        try {
+            await logout();
+        } finally {
+            navigate('/login', { replace: true });
+        }
+    }
 
     return (
         <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-slate-200/80 bg-white/90 px-3 backdrop-blur-md sm:h-16 sm:gap-4 sm:px-6">
@@ -47,14 +83,51 @@ export default function Header() {
                     </span>
                 </button>
 
-                <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white py-1.5 pl-1.5 pr-1.5 sm:pr-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-bold text-white">
-                        B
-                    </div>
-                    <div className="hidden leading-tight md:block">
-                        <div className="text-sm font-semibold text-slate-800">Brahim</div>
-                        <div className="text-[11px] font-medium text-slate-400">Super Admin</div>
-                    </div>
+                <div className="relative" ref={menuRef}>
+                    <button
+                        type="button"
+                        onClick={() => setMenuOpen((open) => !open)}
+                        className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white py-1.5 pl-1.5 pr-2 transition hover:bg-slate-50 sm:pr-3"
+                        aria-expanded={menuOpen}
+                        aria-haspopup="menu"
+                    >
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-bold text-white">
+                            {initials(user?.name)}
+                        </div>
+                        <div className="hidden leading-tight md:block">
+                            <div className="text-left text-sm font-semibold text-slate-800">{user?.name}</div>
+                            <div className="text-left text-[11px] font-medium text-slate-400">
+                                {user?.role_label}
+                            </div>
+                        </div>
+                        <ChevronDown className="hidden h-4 w-4 text-slate-400 sm:block" />
+                    </button>
+
+                    {menuOpen ? (
+                        <div
+                            role="menu"
+                            className="absolute right-0 mt-2 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg shadow-slate-200/70"
+                        >
+                            <Link
+                                to="/profil"
+                                role="menuitem"
+                                onClick={() => setMenuOpen(false)}
+                                className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                            >
+                                <UserRound className="h-4 w-4 text-slate-400" />
+                                Mon profil
+                            </Link>
+                            <button
+                                type="button"
+                                role="menuitem"
+                                onClick={handleLogout}
+                                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm font-medium text-rose-600 transition hover:bg-rose-50"
+                            >
+                                <LogOut className="h-4 w-4" />
+                                Déconnexion
+                            </button>
+                        </div>
+                    ) : null}
                 </div>
             </div>
         </header>

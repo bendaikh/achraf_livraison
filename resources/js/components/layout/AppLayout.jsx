@@ -3,6 +3,7 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import BodyNav from './BodyNav';
 import { SidebarProvider, useSidebar } from './SidebarContext';
+import { WhatsAppUnreadProvider } from '../../contexts/WhatsAppUnreadContext';
 
 function LayoutShell() {
     const { collapsed } = useSidebar();
@@ -29,7 +30,9 @@ function LayoutShell() {
 export default function AppLayout() {
     return (
         <SidebarProvider>
-            <LayoutShell />
+            <WhatsAppUnreadProvider>
+                <LayoutShell />
+            </WhatsAppUnreadProvider>
         </SidebarProvider>
     );
 }

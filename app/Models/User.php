@@ -5,6 +5,8 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -12,6 +14,14 @@ class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    public const ROLE_SUPERADMIN = 'superadmin';
+
+    public const ROLE_ADMIN = 'admin';
+
+    public const ROLE_USER = 'user';
+
+    public const ROLE_LIVREUR = 'livreur';
 
     /**
      * The attributes that are mass assignable.
@@ -22,7 +32,56 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',
+        'company_id',
     ];
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    public function driver(): HasOne
+    {
+        return $this->hasOne(Driver::class);
+    }
+
+    public function resolveCompanyId(): int
+    {
+        if ($this->company_id) {
+            return (int) $this->company_id;
+        }
+
+        $company = Company::default();
+        $this->forceFill(['company_id' => $company->id])->save();
+
+        return (int) $company->id;
+    }
+
+    public function roleLabel(): string
+    {
+        return match ($this->role) {
+            self::ROLE_SUPERADMIN => 'Super Admin',
+            self::ROLE_ADMIN => 'Admin',
+            self::ROLE_LIVREUR => 'Livreur',
+            default => 'Utilisateur',
+        };
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === self::ROLE_SUPERADMIN;
+    }
+
+    public function isAdmin(): bool
+    {
+        return in_array($this->role, [self::ROLE_SUPERADMIN, self::ROLE_ADMIN], true);
+    }
+
+    public function isLivreur(): bool
+    {
+        return $this->role === self::ROLE_LIVREUR;
+    }
 
     /**
      * The attributes that should be hidden for serialization.
@@ -37,7 +96,7 @@ class User extends Authenticatable
     /**
      * Get the attributes that should be cast.
      *
-     * @return array<string, string>
+     * @return array<string, mixed>
      */
     protected function casts(): array
     {

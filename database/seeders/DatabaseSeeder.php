@@ -5,21 +5,25 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // User::factory(10)->create();
+        $this->call(ConfirmationStatusSeeder::class);
+        $this->call(WhatsAppQuickReplySeeder::class);
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        User::query()->updateOrCreate(
+            ['email' => 'superadmin@lavfast-flow.com'],
+            [
+                'name' => 'Super Admin',
+                'password' => Hash::make('SuperAdmin@2026'),
+                'role' => 'superadmin',
+                'email_verified_at' => now(),
+            ]
+        );
     }
 }

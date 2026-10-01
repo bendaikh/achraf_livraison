@@ -1,5 +1,6 @@
 import { useLocation } from 'react-router-dom';
 import { getActiveModule } from '../navigation';
+import { useAuth } from '../contexts/AuthContext';
 
 const titles = {
     '/': 'Vue générale',
@@ -11,12 +12,13 @@ const titles = {
     '/parametres': 'Paramètres',
     '/integrations/ozone': 'Ozone Delivery',
     '/integrations/speedaf': 'Speedaf',
-    '/integrations/libromart': 'Libromart',
+    '/integrations/shopify': 'Shopify',
 };
 
 export default function PlaceholderPage() {
     const { pathname } = useLocation();
-    const module = getActiveModule(pathname);
+    const { user } = useAuth();
+    const module = getActiveModule(pathname, user);
     const title = titles[pathname] ?? 'Page';
 
     return (

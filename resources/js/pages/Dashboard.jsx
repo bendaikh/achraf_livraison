@@ -6,6 +6,7 @@ import TopDrivers from '../components/dashboard/TopDrivers';
 import RecentOrders from '../components/dashboard/RecentOrders';
 import RecentActivity from '../components/dashboard/RecentActivity';
 import IntegrationsBanner from '../components/dashboard/IntegrationsBanner';
+import { useAuth } from '../contexts/AuthContext';
 
 function formatFrenchDate(date = new Date()) {
     return new Intl.DateTimeFormat('fr-FR', {
@@ -17,15 +18,17 @@ function formatFrenchDate(date = new Date()) {
 }
 
 export default function Dashboard() {
+    const { user } = useAuth();
     const todayLabel = formatFrenchDate();
     const capitalized = todayLabel.charAt(0).toUpperCase() + todayLabel.slice(1);
+    const firstName = user?.name?.split(/\s+/)[0] || 'Admin';
 
     return (
         <div className="space-y-4 sm:space-y-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                 <div>
                     <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl lg:text-[28px]">
-                        Bonjour Brahim 👋
+                        Bonjour {firstName} 👋
                     </h1>
                     <p className="mt-1 text-sm font-medium text-slate-500">
                         Voici un aperçu de vos livraisons aujourd&apos;hui.
