@@ -29,7 +29,10 @@ export const modules = [
         label: 'Livreurs',
         to: '/livreurs',
         icon: Bike,
-        tabs: [{ to: '/livreurs', label: 'Liste des livreurs' }],
+        tabs: [
+            { to: '/livreurs', label: 'Liste des livreurs' },
+            { to: '/missions', label: 'Missions' },
+        ],
     },
     {
         id: 'cloture',

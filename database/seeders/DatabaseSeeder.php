@@ -2,24 +2,26 @@
 
 namespace Database\Seeders;
 
+use App\Models\DeliveryStatus;
+use App\Models\Setting;
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // User #1 = the admin used as "current user" until authentication exists.
+        User::query()->firstOrCreate(
+            ['email' => 'brahim@lavafast.ma'],
+            ['name' => 'Brahim', 'password' => bcrypt('password')],
+        );
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        $this->call(DeliveryStatusSeeder::class);
+
+        Setting::setValue('company_name', 'Lavafast Livraison');
+        Setting::setValue('confirmation_alert_hours', 24);
+        Setting::setValue('status_on_confirm_id', DeliveryStatus::where('code', 'a_attribuer')->value('id'));
+        Setting::setValue('status_on_assign_id', DeliveryStatus::where('code', 'attribuee')->value('id'));
     }
 }
