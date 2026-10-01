@@ -171,7 +171,13 @@ export default function Orders() {
                 <Spinner />
             ) : orders.length === 0 ? (
                 <Card>
-                    <EmptyState>Aucune commande</EmptyState>
+                    <EmptyState>
+                        Aucune commande. Les commandes Shopify apparaissent ici après synchronisation —{' '}
+                        <Link to="/integrations/shopify" className="font-semibold text-blue-600 hover:text-blue-700">
+                            ouvrir l’intégration Shopify
+                        </Link>
+                        .
+                    </EmptyState>
                 </Card>
             ) : (
                 <>

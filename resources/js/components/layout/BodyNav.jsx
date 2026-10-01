@@ -2,10 +2,12 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { getActiveModule } from '../../navigation';
 import { useSidebar } from './SidebarContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function BodyNav() {
     const location = useLocation();
-    const module = getActiveModule(location.pathname);
+    const { user } = useAuth();
+    const module = getActiveModule(location.pathname, user);
     const { collapsed, toggleCollapsed } = useSidebar();
 
     if (!module) return null;

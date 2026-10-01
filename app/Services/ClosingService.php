@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Closing;
-use App\Models\DeliveryStatus;
 use App\Models\Driver;
 use App\Models\Mission;
 use App\Models\Order;
@@ -25,7 +24,8 @@ class ClosingService
             ->whereNotNull('driver_id')
             ->whereNull('closing_id')
             ->whereNotNull('delivered_at')
-            ->whereIn('delivery_status_id', DeliveryStatus::idsForCategories(['succes']))
+            ->whereNull('cod_remitted_at')
+            ->inDeliveryCategories(['succes'])
             ->when($driverId, fn ($q) => $q->where('driver_id', $driverId));
     }
 
@@ -52,7 +52,7 @@ class ClosingService
         $missions = $this->unclosedCompletedMissions($driverId);
 
         return [
-            'cod' => round((float) (clone $orders)->sum('collected_amount') + $this->unclosedMissionCash($driverId), 2),
+            'cod' => round((float) (clone $orders)->sum('amount_collected') + $this->unclosedMissionCash($driverId), 2),
             'commissions' => round((float) (clone $missions)->sum('driver_price'), 2),
             'orders_count' => (clone $orders)->count(),
             'missions_count' => (clone $missions)->count(),
@@ -86,7 +86,8 @@ class ClosingService
                 'user_id' => CurrentUser::id(),
                 'closed_at' => now(),
             ]);
-            $this->unclosedDeliveredOrders($driver->id)->update(['closing_id' => $closing->id]);
+            // cod_remitted_at keeps the existing "COD remis" flag in sync with the closing.
+            $this->unclosedDeliveredOrders($driver->id)->update(['closing_id' => $closing->id, 'cod_remitted_at' => $closing->closed_at]);
             $this->unclosedCompletedMissions($driver->id)->update(['closing_id' => $closing->id]);
 
             return $closing;

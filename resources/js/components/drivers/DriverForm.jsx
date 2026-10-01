@@ -3,7 +3,7 @@ import api, { errorMessage, fieldErrors } from '../../lib/api';
 import { useMeta } from '../../context/MetaContext';
 import { Alert, Button, Drawer, Field, Input, Textarea } from '../ui';
 
-const EMPTY = { name: '', phone: '', email: '', city: '', vehicle: '', is_active: true, notes: '' };
+const EMPTY = { name: '', phone: '', email: '', password: '', city: '', vehicle: '', is_active: true, notes: '' };
 
 function tariffsToForm(tariffs = {}) {
     return Object.fromEntries(Object.entries(tariffs || {}).map(([type, v]) => [`tariff_${type}`, v ?? '']));
@@ -21,7 +21,7 @@ export default function DriverForm({ open, driver, onClose, onSaved, focusTariff
         setErrors({});
         setError(null);
         // New driver: tariffs prefilled with the company defaults (Paramètres), still editable.
-        setForm(driver ? { ...EMPTY, ...driver, ...tariffsToForm(driver.tariffs) } : { ...EMPTY, ...tariffsToForm(meta.defaultTariffs) });
+        setForm(driver ? { ...EMPTY, ...driver, password: '', ...tariffsToForm(driver.tariffs) } : { ...EMPTY, ...tariffsToForm(meta.defaultTariffs) });
         if (focusTariffs) setTimeout(() => document.getElementById('driver-tariffs')?.scrollIntoView({ behavior: 'smooth' }), 50);
     }, [open, driver, meta.defaultTariffs, focusTariffs]);
 
@@ -33,7 +33,8 @@ export default function DriverForm({ open, driver, onClose, onSaved, focusTariff
         setErrors({});
         setError(null);
         try {
-            const { tariffs, stats, created_at, id, ...payload } = form; // eslint-disable-line no-unused-vars
+            const { tariffs, stats, created_at, id, user_id, has_account, ...payload } = form; // eslint-disable-line no-unused-vars
+            if (!payload.password) delete payload.password;
             meta.missionTypes.forEach((t) => {
                 const k = `tariff_${t.value}`;
                 payload[k] = payload[k] === '' || payload[k] === undefined ? null : Number(payload[k]);
@@ -74,9 +75,6 @@ export default function DriverForm({ open, driver, onClose, onSaved, focusTariff
                         <Field label="Téléphone" error={errors.phone}>
                             <Input value={form.phone || ''} onChange={set('phone')} />
                         </Field>
-                        <Field label="E-mail" error={errors.email}>
-                            <Input type="email" value={form.email || ''} onChange={set('email')} />
-                        </Field>
                         <Field label="Ville" error={errors.city}>
                             <Input value={form.city || ''} onChange={set('city')} />
                         </Field>
@@ -84,9 +82,20 @@ export default function DriverForm({ open, driver, onClose, onSaved, focusTariff
                             <Input value={form.vehicle || ''} onChange={set('vehicle')} placeholder="Moto, voiture…" />
                         </Field>
                     </div>
+                    <div className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 p-3 sm:grid-cols-2">
+                        <p className="text-[11px] text-slate-500 sm:col-span-2">
+                            Accès Lavfast Flow du livreur (rôle Livreur) : il se connecte avec cet e-mail pour voir « Mes missions ».
+                        </p>
+                        <Field label="E-mail de connexion *" error={errors.email}>
+                            <Input type="email" value={form.email || ''} onChange={set('email')} required autoComplete="off" />
+                        </Field>
+                        <Field label={driver ? 'Nouveau mot de passe (optionnel)' : 'Mot de passe *'} error={errors.password}>
+                            <Input type="password" value={form.password || ''} onChange={set('password')} required={!driver} minLength={8} autoComplete="new-password" />
+                        </Field>
+                    </div>
                     <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
                         <input type="checkbox" checked={!!form.is_active} onChange={set('is_active')} className="h-4 w-4 accent-blue-600" />
-                        Livreur actif
+                        Compte actif
                     </label>
                 </section>
 

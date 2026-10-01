@@ -15,6 +15,12 @@ class DriverTariffTest extends TestCase
 
     protected bool $seed = true;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->signInAdmin();
+    }
+
     public function test_company_default_tariffs_prefill_new_driver(): void
     {
         $this->putJson('/api/settings', ['default_tariffs' => [
@@ -23,7 +29,7 @@ class DriverTariffTest extends TestCase
 
         $this->getJson('/api/meta')->assertJsonPath('default_tariffs.livraison', 22);
 
-        $res = $this->postJson('/api/drivers', ['name' => 'Nouveau livreur'])->assertCreated();
+        $res = $this->postJson('/api/drivers', ['name' => 'Nouveau livreur', 'email' => 'nouveau@demo.test', 'password' => 'secret123'])->assertCreated();
         $res->assertJsonPath('data.tariffs.livraison', 22)
             ->assertJsonPath('data.tariffs.ramassage', 11)
             ->assertJsonPath('data.tariffs.depot_partenaire', 5)
@@ -34,7 +40,7 @@ class DriverTariffTest extends TestCase
     public function test_admin_can_override_defaults_per_driver_with_separate_retour_and_echange(): void
     {
         $res = $this->postJson('/api/drivers', [
-            'name' => 'Yassine',
+            'name' => 'Yassine', 'email' => 'yassine@demo.test', 'password' => 'secret123',
             'tariff_livraison' => 20, 'tariff_ramassage' => 10, 'tariff_depot_partenaire' => 6,
             'tariff_retour' => 7, 'tariff_echange' => 12,
         ])->assertCreated();
@@ -48,7 +54,7 @@ class DriverTariffTest extends TestCase
     public function test_tariff_snapshot_is_not_retroactive(): void
     {
         $driver = Driver::create(['name' => 'Yassine', 'tariff_livraison' => 20, 'tariff_ramassage' => 10]);
-        $order = Order::create(['customer_name' => 'Client', 'amount' => 199]);
+        $order = $this->order(['customer_name' => 'Client', 'amount' => 199]);
 
         // Assigning the order creates the livraison mission with today's tariff (20 DH).
         $this->putJson("/api/orders/{$order->id}", ['driver_id' => $driver->id])->assertOk();
@@ -64,7 +70,7 @@ class DriverTariffTest extends TestCase
 
         // …the past mission stays at 20 DH, new missions use 25 DH.
         $this->assertEquals(20, (float) $mission->fresh()->driver_price);
-        $order2 = Order::create(['customer_name' => 'Client 2', 'amount' => 99]);
+        $order2 = $this->order(['customer_name' => 'Client 2', 'amount' => 99]);
         $this->putJson("/api/orders/{$order2->id}", ['driver_id' => $driver->id])->assertOk();
         $this->assertEquals(25, (float) Mission::where('order_id', $order2->id)->value('driver_price'));
     }

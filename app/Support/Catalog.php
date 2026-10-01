@@ -24,13 +24,33 @@ class Catalog
     /** Categories meaning the order has left for delivery ("sorties en livraison"). */
     public const OUT_FOR_DELIVERY_CATEGORIES = ['en_livraison', 'succes', 'injoignable', 'echec', 'report', 'retour'];
 
-    /** Call-center confirmation step (before the delivery workflow). */
-    public const CONFIRMATION_STATUSES = [
-        'a_confirmer' => ['label' => 'À confirmer', 'color' => '#f59e0b'],
-        'confirmee' => ['label' => 'Confirmée', 'color' => '#16a34a'],
-        'pas_de_reponse' => ['label' => 'Pas de réponse', 'color' => '#a855f7'],
-        'reportee' => ['label' => 'Rappel reporté', 'color' => '#0ea5e9'],
-        'annulee' => ['label' => 'Annulée', 'color' => '#e11d48'],
+    /*
+    | Category groups used by the local delivery workflow (Affectation, Mes missions, Livreurs).
+    | Statuses are configurable; only their *categories* carry behaviour.
+    */
+
+    /** With a driver, orders in these categories are still "chez le livreur". */
+    public const DRIVER_ACTIVE_CATEGORIES = ['avant_livraison', 'en_livraison', 'report'];
+
+    /** Confirmed orders in these categories (or without status) can be (re)assigned. */
+    public const ASSIGNABLE_CATEGORIES = ['avant_livraison', 'injoignable', 'echec'];
+
+    /** "À retraiter" in the assignment screen. */
+    public const RETRY_CATEGORIES = ['injoignable', 'echec'];
+
+    /** Finished attempts shown in the driver history. */
+    public const DRIVER_HISTORY_CATEGORIES = ['succes', 'injoignable', 'echec', 'retour', 'annulation'];
+
+    /**
+     * Driver actions (Mes missions) → status category. The exact status used can be chosen in
+     * Paramètres (setting "driver_action_status_ids"); otherwise the first active status of the category.
+     */
+    public const DRIVER_ACTIONS = [
+        'take' => ['label' => 'Prise en charge', 'category' => 'en_livraison'],
+        'deliver' => ['label' => 'Livrée', 'category' => 'succes'],
+        'postpone' => ['label' => 'Reporter', 'category' => 'report'],
+        'no_answer' => ['label' => 'Pas de réponse', 'category' => 'injoignable'],
+        'fail' => ['label' => 'Échouée', 'category' => 'echec'],
     ];
 
     public const MISSION_TYPES = [
@@ -60,6 +80,7 @@ class Catalog
     /** Mission types a status may generate automatically for the order's driver. */
     public const STATUS_MISSION_TYPES = ['retour', 'echange'];
 
+    /** Stored through the Shopify-compatible orders.financial_status column ("paid" = déjà payé). */
     public const PAYMENT_METHODS = [
         'cod' => 'À la livraison (COD)',
         'paye' => 'Déjà payé',

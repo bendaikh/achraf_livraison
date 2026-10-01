@@ -10,7 +10,7 @@ export default function IntegrationsBanner() {
                         Optimisez vos livraisons avec nos intégrations
                     </h2>
                     <p className="mt-1 text-sm font-medium text-slate-500">
-                        Connectez Ozone, Speedaf et Libromart pour automatiser vos flux.
+                        Connectez Ozone, Speedaf et Shopify pour automatiser vos flux.
                     </p>
                 </div>
 

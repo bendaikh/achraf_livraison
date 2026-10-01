@@ -12,7 +12,16 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->redirectGuestsTo('/login');
+        $middleware->redirectUsersTo('/');
+        $middleware->validateCsrfTokens(except: [
+            'shopify/webhooks',
+            'whatsapp/webhooks',
+        ]);
+        $middleware->alias([
+            'admin.access' => \App\Http\Middleware\EnsureAdminAccess::class,
+            'driver.access' => \App\Http\Middleware\EnsureDriverAccess::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

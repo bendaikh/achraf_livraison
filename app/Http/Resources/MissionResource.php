@@ -15,7 +15,7 @@ class MissionResource extends JsonResource
             'type' => $this->type,
             'status' => $this->status,
             'order_id' => $this->order_id,
-            'order_reference' => $this->whenLoaded('order', fn () => $this->order?->reference),
+            'order_reference' => $this->whenLoaded('order', fn () => $this->order?->reference()),
             'driver_id' => $this->driver_id,
             'driver' => $this->whenLoaded('driver', fn () => $this->driver ? ['id' => $this->driver->id, 'name' => $this->driver->name] : null),
             'contact_name' => $this->contact_name,

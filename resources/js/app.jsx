@@ -1,18 +1,20 @@
-import '../css/app.css';
-import './bootstrap';
-
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import AppRouter from './AppRouter';
+import '../css/app.css';
+import './bootstrap';
+import { AuthProvider } from './contexts/AuthContext';
 import { MetaProvider } from './context/MetaContext';
+import AppRouter from './AppRouter';
 
 createRoot(document.getElementById('root')).render(
     <StrictMode>
         <BrowserRouter>
-            <MetaProvider>
-                <AppRouter />
-            </MetaProvider>
+            <AuthProvider>
+                <MetaProvider>
+                    <AppRouter />
+                </MetaProvider>
+            </AuthProvider>
         </BrowserRouter>
     </StrictMode>,
 );

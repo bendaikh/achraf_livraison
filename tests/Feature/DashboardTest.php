@@ -17,6 +17,12 @@ class DashboardTest extends TestCase
 
     protected bool $seed = true;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->signInAdmin();
+    }
+
     protected function st(string $code): DeliveryStatus
     {
         return DeliveryStatus::where('code', $code)->firstOrFail();
@@ -40,29 +46,29 @@ class DashboardTest extends TestCase
         $yassine = Driver::create(['name' => 'Yassine', 'tariff_livraison' => 20]);
         $achraf = Driver::create(['name' => 'Achraf', 'tariff_livraison' => 25]);
 
-        Order::create(['customer_name' => 'A', 'amount' => 100]);                         // à confirmer
-        $wf->changeConfirmation(Order::create(['customer_name' => 'B', 'amount' => 100]), 'pas_de_reponse');
-        $wf->changeConfirmation(Order::create(['customer_name' => 'C', 'amount' => 100]), 'confirmee'); // à attribuer
+        $this->order(['customer_name' => 'A', 'amount' => 100]);                         // à confirmer
+        $wf->changeConfirmation($this->order(['customer_name' => 'B', 'amount' => 100]), 'no_answer');
+        $wf->changeConfirmation($this->order(['customer_name' => 'C', 'amount' => 100]), 'confirmed'); // à attribuer
 
-        $d = Order::create(['customer_name' => 'D', 'amount' => 250]);
-        $wf->changeConfirmation($d, 'confirmee');
+        $d = $this->order(['customer_name' => 'D', 'amount' => 250]);
+        $wf->changeConfirmation($d, 'confirmed');
         $wf->assignDriver($d, $yassine->id);
-        $wf->changeStatus($d, $this->st('en_cours'));
-        $wf->changeStatus($d, $this->st('livree'), ['collected_amount' => 250]);
+        $wf->changeStatus($d, $this->st('in_progress'));
+        $wf->changeStatus($d, $this->st('delivered'), ['collected_amount' => 250]);
 
-        $e = Order::create(['customer_name' => 'E', 'amount' => 80]);
-        $wf->changeConfirmation($e, 'confirmee');
+        $e = $this->order(['customer_name' => 'E', 'amount' => 80]);
+        $wf->changeConfirmation($e, 'confirmed');
         $wf->assignDriver($e, $achraf->id);
-        $wf->changeStatus($e, $this->st('en_cours'));
+        $wf->changeStatus($e, $this->st('in_progress'));
 
-        $f = Order::create(['customer_name' => 'F', 'amount' => 90]);
-        $wf->changeConfirmation($f, 'confirmee');
+        $f = $this->order(['customer_name' => 'F', 'amount' => 90]);
+        $wf->changeConfirmation($f, 'confirmed');
         $wf->assignDriver($f, $achraf->id);
-        $wf->changeStatus($f, $this->st('echouee'), ['reason' => 'Absent']);
+        $wf->changeStatus($f, $this->st('failed'), ['reason' => 'Absent']);
 
         // An old order outside the period must not be counted.
         Carbon::setTestNow(now()->subDays(10));
-        Order::create(['customer_name' => 'Old', 'amount' => 999]);
+        $this->order(['customer_name' => 'Old', 'amount' => 999]);
         Carbon::setTestNow();
 
         $res = $this->getJson('/api/dashboard?period=today')->assertOk();
@@ -96,7 +102,7 @@ class DashboardTest extends TestCase
     public function test_custom_period_and_yesterday(): void
     {
         Carbon::setTestNow(now()->subDay()->setTime(10, 0));
-        Order::create(['customer_name' => 'Hier', 'amount' => 10]);
+        $this->order(['customer_name' => 'Hier', 'amount' => 10]);
         Carbon::setTestNow();
         $this->getJson('/api/dashboard?period=yesterday')->assertJsonPath('data.cards.received', 1);
         $this->getJson('/api/dashboard?period=today')->assertJsonPath('data.cards.received', 0);
@@ -140,10 +146,10 @@ class DashboardTest extends TestCase
     {
         $wf = app(OrderWorkflow::class);
         $driver = Driver::create(['name' => 'Y', 'tariff_livraison' => 20]);
-        $o = Order::create(['customer_name' => 'A', 'amount' => 300]);
-        $wf->changeConfirmation($o, 'confirmee');
+        $o = $this->order(['customer_name' => 'A', 'amount' => 300]);
+        $wf->changeConfirmation($o, 'confirmed');
         $wf->assignDriver($o, $driver->id);
-        $wf->changeStatus($o, $this->st('livree'), ['collected_amount' => 300]);
+        $wf->changeStatus($o, $this->st('delivered'), ['collected_amount' => 300]);
 
         $this->getJson('/api/closings/pending')->assertJsonPath('data.0.cod', 300)->assertJsonPath('data.0.commissions', 20);
         $this->postJson('/api/closings', ['driver_id' => $driver->id, 'cod_remitted' => 280])->assertCreated()
@@ -164,7 +170,7 @@ class DashboardTest extends TestCase
     public function test_alerts_zone(): void
     {
         Carbon::setTestNow(now()->subDays(2));
-        Order::create(['customer_name' => 'Ancienne', 'amount' => 10]);
+        $this->order(['customer_name' => 'Ancienne', 'amount' => 10]);
         app(\App\Services\MissionService::class)->create(['type' => 'ramassage', 'contact_name' => 'X', 'scheduled_date' => now()->toDateString()]);
         Carbon::setTestNow();
 

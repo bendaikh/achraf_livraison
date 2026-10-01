@@ -59,7 +59,8 @@ export function renderCell(key, order, meta) {
             return <StatusBadge status={order.delivery_status} />;
         case 'confirmation': {
             const c = meta.confirmationMap[order.confirmation_status];
-            return c ? <ColorBadge color={c.color} label={c.label} /> : '—';
+            const label = c?.label || order.confirmation_status_label;
+            return label ? <ColorBadge color={c?.color || order.confirmation_status_color} label={label} /> : '—';
         }
         case 'driver':
             return order.driver?.name || order.carrier || '—';
@@ -68,7 +69,7 @@ export function renderCell(key, order, meta) {
         case 'source':
             return order.source || '—';
         case 'date':
-            return formatDateTime(order.created_at);
+            return formatDateTime(order.shopify_created_at || order.created_at);
         default:
             return null;
     }

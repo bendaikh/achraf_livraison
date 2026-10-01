@@ -1,9 +1,28 @@
 import axios from 'axios';
 
+const csrf = typeof document !== 'undefined' ? document.head.querySelector('meta[name="csrf-token"]')?.content : null;
+
+// Same session auth as the rest of the SPA (cookies + CSRF).
 const api = axios.create({
     baseURL: '/api',
-    headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    withCredentials: true,
+    headers: {
+        Accept: 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
+    },
 });
+
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        // Session expired: back to the login screen.
+        if (error?.response?.status === 401 && typeof window !== 'undefined' && window.location.pathname !== '/login') {
+            window.location.assign('/login');
+        }
+        return Promise.reject(error);
+    },
+);
 
 export function errorMessage(error, fallback = 'Une erreur est survenue.') {
     const data = error?.response?.data;

@@ -2,66 +2,471 @@
 
 namespace App\Models;
 
+use App\Support\Catalog;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
+/**
+ * Orders come from Shopify (shopify_shop_id) or are created manually in Lavfast Flow.
+ *
+ * Delivery status: `delivery_status` holds the *code* of a configurable DeliveryStatus
+ * (Paramètres → Statuts de livraison). Behaviour is driven by the status category, never by
+ * a hard-coded list of codes. Changes go through App\Services\OrderWorkflow.
+ */
 class Order extends Model
 {
+    /** System action codes (seeded). Prefer ConfirmationStatus lookups for labels/colors. */
+    public const CONFIRMATION_TO_CONFIRM = 'to_confirm';
+
+    public const CONFIRMATION_NO_ANSWER = 'no_answer';
+
+    public const CONFIRMATION_POSTPONED = 'postponed';
+
+    public const CONFIRMATION_CONFIRMED = 'confirmed';
+
+    public const CONFIRMATION_CANCELLED = 'cancelled';
+
     protected $fillable = [
-        'reference', 'product_name', 'product_image', 'quantity', 'customer_name', 'customer_phone',
-        'city', 'address', 'amount', 'payment_method', 'confirmation_status', 'delivery_status_id',
-        'driver_id', 'carrier', 'assigned_user_id', 'source', 'note', 'status_reason', 'postponed_at',
-        'collected_amount', 'confirmed_at', 'delivered_at', 'status_changed_at', 'closing_id',
+        'shopify_shop_id',
+        'shopify_order_id',
+        'source',
+        'order_number',
+        'name',
+        'email',
+        'phone',
+        'customer_name',
+        'financial_status',
+        'fulfillment_status',
+        'status',
+        'confirmation_status',
+        'delivery_status',
+        'driver_id',
+        'carrier',
+        'assigned_user_id',
+        'assigned_by',
+        'assigned_at',
+        'delivery_taken_at',
+        'delivery_postponed_until',
+        'delivery_failure_reason',
+        'amount_collected',
+        'delivered_at',
+        'status_changed_at',
+        'cod_remitted_at',
+        'closing_id',
+        'total_price',
+        'shipping_price',
+        'currency',
+        'shipping_address',
+        'line_items',
+        'note',
+        'internal_note',
+        'confirmation_history',
+        'confirmed_by',
+        'confirmed_at',
+        'confirmation_acted_by',
+        'confirmation_acted_at',
+        'postponed_until',
+        'cancellation_reason',
+        'shopify_created_at',
+        'shopify_updated_at',
     ];
 
     protected $attributes = [
-        'quantity' => 1,
-        'payment_method' => 'cod',
-        'confirmation_status' => 'a_confirmer',
-        'amount' => 0,
+        'confirmation_status' => self::CONFIRMATION_TO_CONFIRM,
+        'status' => 'pending',
+        'total_price' => 0,
     ];
 
-    protected $casts = [
-        'amount' => 'decimal:2',
-        'collected_amount' => 'decimal:2',
-        'quantity' => 'integer',
-        'postponed_at' => 'datetime',
-        'confirmed_at' => 'datetime',
-        'delivered_at' => 'datetime',
-        'status_changed_at' => 'datetime',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'shipping_address' => 'array',
+            'line_items' => 'array',
+            'confirmation_history' => 'array',
+            'total_price' => 'decimal:2',
+            'shipping_price' => 'decimal:2',
+            'amount_collected' => 'decimal:2',
+            'shopify_created_at' => 'datetime',
+            'shopify_updated_at' => 'datetime',
+            'confirmed_at' => 'datetime',
+            'confirmation_acted_at' => 'datetime',
+            'postponed_until' => 'datetime',
+            'assigned_at' => 'datetime',
+            'delivery_taken_at' => 'datetime',
+            'delivery_postponed_until' => 'datetime',
+            'delivered_at' => 'datetime',
+            'status_changed_at' => 'datetime',
+            'cod_remitted_at' => 'datetime',
+        ];
+    }
 
     protected static function booted(): void
     {
+        // Manual orders get a readable number (Shopify orders keep theirs).
         static::created(function (Order $order) {
-            if (! $order->reference) {
-                $order->reference = 'CMD-'.(1000 + $order->id);
+            if (! $order->order_number && ! $order->name) {
+                $order->order_number = (string) (1000 + $order->id);
+                $order->name = 'CMD-'.$order->order_number;
                 $order->saveQuietly();
             }
         });
     }
 
-    public function deliveryStatus()
+    /**
+     * Maps the simple form fields used by the Commandes screens (and seeders/tests) onto the
+     * Shopify-compatible columns.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public static function attributesFromForm(array $data, ?self $existing = null): array
     {
-        return $this->belongsTo(DeliveryStatus::class);
+        $out = [];
+        $map = [
+            'customer_name' => 'customer_name',
+            'customer_phone' => 'phone',
+            'email' => 'email',
+            'amount' => 'total_price',
+            'note' => 'note',
+            'source' => 'source',
+            'carrier' => 'carrier',
+            'assigned_user_id' => 'assigned_user_id',
+            'reference' => 'name',
+        ];
+        foreach ($map as $from => $to) {
+            if (array_key_exists($from, $data)) {
+                $out[$to] = $data[$from];
+            }
+        }
+        if (array_key_exists('payment_method', $data)) {
+            $out['financial_status'] = $data['payment_method'] === 'paye' ? 'paid' : 'pending';
+        }
+        if (array_key_exists('city', $data) || array_key_exists('address', $data)) {
+            $address = $existing?->shipping_address ?? [];
+            if (array_key_exists('city', $data)) {
+                $address['city'] = $data['city'];
+            }
+            if (array_key_exists('address', $data)) {
+                $address['address1'] = $data['address'];
+            }
+            $out['shipping_address'] = $address;
+        }
+        if (array_key_exists('product_name', $data) || array_key_exists('quantity', $data) || array_key_exists('product_image', $data)) {
+            $items = $existing?->line_items ?? [];
+            $first = $items[0] ?? [];
+            if (array_key_exists('product_name', $data)) {
+                $first['title'] = $data['product_name'];
+            }
+            if (array_key_exists('quantity', $data)) {
+                $first['quantity'] = (int) ($data['quantity'] ?: 1);
+            }
+            if (array_key_exists('product_image', $data)) {
+                $first['image'] = $data['product_image'];
+            }
+            $first['quantity'] ??= 1;
+            $items[0] = $first;
+            $out['line_items'] = $items;
+        }
+
+        return $out;
     }
 
-    public function driver()
+    /* ----------------------------------------------------------------- relations */
+
+    public function shop(): BelongsTo
+    {
+        return $this->belongsTo(ShopifyShop::class, 'shopify_shop_id');
+    }
+
+    public function confirmedByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'confirmed_by');
+    }
+
+    public function confirmationActedByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'confirmation_acted_by');
+    }
+
+    public function driver(): BelongsTo
     {
         return $this->belongsTo(Driver::class);
     }
 
-    public function assignedUser()
+    public function assignedByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_by');
+    }
+
+    public function assignedUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_user_id');
     }
 
-    public function missions()
+    /** Configurable status referenced by code (includes inactive statuses for old orders). */
+    public function deliveryStatus(): BelongsTo
+    {
+        return $this->belongsTo(DeliveryStatus::class, 'delivery_status', 'code');
+    }
+
+    public function missions(): HasMany
     {
         return $this->hasMany(Mission::class);
     }
 
-    public function histories()
+    public function histories(): HasMany
     {
         return $this->hasMany(OrderStatusHistory::class)->orderByDesc('created_at')->orderByDesc('id');
+    }
+
+    /* ----------------------------------------------------------------- display helpers */
+
+    public function reference(): string
+    {
+        return (string) ($this->name ?: ($this->order_number ? '#'.$this->order_number : 'CMD-'.$this->id));
+    }
+
+    public function productName(): ?string
+    {
+        $items = is_array($this->line_items) ? $this->line_items : [];
+        if ($items === []) {
+            return null;
+        }
+        $first = $items[0]['title'] ?? $items[0]['name'] ?? null;
+        if (count($items) > 1) {
+            return trim(($first ?? 'Article').' + '.(count($items) - 1).' autre(s)');
+        }
+
+        return $first;
+    }
+
+    public function productImage(): ?string
+    {
+        $item = (is_array($this->line_items) ? $this->line_items : [])[0] ?? [];
+
+        return $item['image'] ?? data_get($item, 'image.src');
+    }
+
+    public function itemsQuantity(): int
+    {
+        $items = is_array($this->line_items) ? $this->line_items : [];
+        $qty = array_sum(array_map(fn ($i) => (int) ($i['quantity'] ?? 1), $items));
+
+        return max(1, $qty);
+    }
+
+    public function paymentMethod(): string
+    {
+        return $this->financial_status === 'paid' ? 'paye' : 'cod';
+    }
+
+    public function isCod(): bool
+    {
+        return $this->paymentMethod() === 'cod';
+    }
+
+    public function sourceLabel(): ?string
+    {
+        if ($this->source) {
+            return $this->source;
+        }
+
+        return $this->shopify_shop_id ? 'Shopify'.($this->shop?->shop_name ? ' · '.$this->shop->shop_name : '') : null;
+    }
+
+    public function confirmationStatusDefinition(): ?ConfirmationStatus
+    {
+        return ConfirmationStatus::findByCode($this->confirmation_status);
+    }
+
+    public function isDueForConfirmation(): bool
+    {
+        $definition = $this->confirmationStatusDefinition();
+
+        if (! $definition) {
+            return $this->confirmation_status === self::CONFIRMATION_TO_CONFIRM;
+        }
+
+        if ($definition->queue_behavior === ConfirmationStatus::BEHAVIOR_DUE_QUEUE || $definition->is_default) {
+            return true;
+        }
+
+        return $definition->queue_behavior === ConfirmationStatus::BEHAVIOR_FUTURE_ONLY
+            && $this->postponed_until
+            && $this->postponed_until->lte(now());
+    }
+
+    public function canPerformConfirmationActions(): bool
+    {
+        $definition = $this->confirmationStatusDefinition();
+
+        if ($definition) {
+            return ! $definition->is_terminal && $definition->is_active;
+        }
+
+        return ! in_array($this->confirmation_status, [
+            self::CONFIRMATION_CONFIRMED,
+            self::CONFIRMATION_CANCELLED,
+        ], true);
+    }
+
+    public function isConfirmed(): bool
+    {
+        return in_array($this->confirmation_status, ConfirmationStatus::codesOfType(ConfirmationStatus::TYPE_SUCCESS), true)
+            || $this->confirmation_status === self::CONFIRMATION_CONFIRMED;
+    }
+
+    /** The configurable status of this order (uses the loaded relation when available). */
+    public function deliveryStatusDefinition(): ?DeliveryStatus
+    {
+        if (! $this->delivery_status) {
+            return null;
+        }
+        if (! $this->relationLoaded('deliveryStatus') || $this->deliveryStatus?->code !== $this->delivery_status) {
+            $this->setRelation('deliveryStatus', DeliveryStatus::findByCode($this->delivery_status));
+        }
+
+        return $this->deliveryStatus;
+    }
+
+    public function deliveryCategory(): ?string
+    {
+        return $this->deliveryStatusDefinition()?->category;
+    }
+
+    public function isAwaitingAssignment(): bool
+    {
+        if (! $this->isConfirmed()) {
+            return false;
+        }
+        if ($this->isActiveWithDriver()) {
+            return false;
+        }
+        $category = $this->deliveryCategory();
+
+        return $category === null || in_array($category, Catalog::ASSIGNABLE_CATEGORIES, true);
+    }
+
+    public function canBeAssigned(): bool
+    {
+        return $this->isAwaitingAssignment();
+    }
+
+    public function isActiveWithDriver(): bool
+    {
+        return $this->driver_id
+            && in_array($this->deliveryCategory(), Catalog::DRIVER_ACTIVE_CATEGORIES, true);
+    }
+
+    public function deliveryStatusLabel(): string
+    {
+        if (! $this->delivery_status) {
+            return 'À attribuer';
+        }
+
+        return $this->deliveryStatusDefinition()?->name ?? $this->delivery_status;
+    }
+
+    public function deliveryStatusColor(): string
+    {
+        return $this->deliveryStatusDefinition()?->color ?? '#64748b';
+    }
+
+    public function appendHistory(string $type, string $label, ?User $user = null, array $meta = [], ?string $comment = null): void
+    {
+        $history = $this->confirmation_history ?? [];
+
+        $entry = [
+            'type' => $type,
+            'label' => $label,
+            'user_id' => $user?->id,
+            'user_name' => $user?->name,
+            'at' => now()->toIso8601String(),
+            'comment' => $comment,
+            'meta' => $meta ?: null,
+        ];
+
+        $history[] = array_filter($entry, fn ($value) => $value !== null);
+
+        $this->confirmation_history = $history;
+    }
+
+    public function shippingAddressLine(): ?string
+    {
+        $address = $this->shipping_address;
+        if (! is_array($address)) {
+            return null;
+        }
+
+        $parts = array_filter([
+            $address['address1'] ?? null,
+            $address['address2'] ?? null,
+        ]);
+
+        return $parts !== [] ? implode(', ', $parts) : null;
+    }
+
+    public function shippingCity(): ?string
+    {
+        return data_get($this->shipping_address, 'city');
+    }
+
+    public static function confirmationLabel(string $status): string
+    {
+        return ConfirmationStatus::labelFor($status);
+    }
+
+    public function postponedUntilFormatted(): ?string
+    {
+        if (! $this->postponed_until instanceof Carbon) {
+            return null;
+        }
+
+        return $this->postponed_until->timezone(config('app.timezone'))->format('d/m/Y H:i');
+    }
+
+    public function deliveryPostponedUntilFormatted(): ?string
+    {
+        if (! $this->delivery_postponed_until instanceof Carbon) {
+            return null;
+        }
+
+        return $this->delivery_postponed_until->timezone(config('app.timezone'))->format('d/m/Y H:i');
+    }
+
+    /* ----------------------------------------------------------------- scopes */
+
+    public function scopeInDeliveryCategories(Builder $query, array $categories): Builder
+    {
+        return $query->whereIn('delivery_status', DeliveryStatus::codesForCategories($categories) ?: ['__none__']);
+    }
+
+    public function scopeConfirmed(Builder $query): Builder
+    {
+        return $query->whereIn('confirmation_status', ConfirmationStatus::codesOfType(ConfirmationStatus::TYPE_SUCCESS) ?: [self::CONFIRMATION_CONFIRMED]);
+    }
+
+    public function scopeAwaitingAssignment(Builder $query): Builder
+    {
+        $assignable = DeliveryStatus::codesForCategories(Catalog::ASSIGNABLE_CATEGORIES);
+        $active = DeliveryStatus::codesForCategories(Catalog::DRIVER_ACTIVE_CATEGORIES);
+
+        return $query->confirmed()
+            ->where(fn ($q) => $q->whereNull('delivery_status')->orWhereIn('delivery_status', $assignable ?: ['__none__']))
+            // "Attribuée" is avant_livraison too: exclude orders already with a driver in an active status.
+            ->where(fn ($q) => $q->whereNull('driver_id')->orWhereNotIn('delivery_status', $active ?: ['__none__'])->orWhereNull('delivery_status'));
+    }
+
+    public function scopeActiveWithDriver(Builder $query): Builder
+    {
+        return $query->whereNotNull('driver_id')->inDeliveryCategories(Catalog::DRIVER_ACTIVE_CATEGORIES);
+    }
+
+    public function scopeForDriver(Builder $query, int $driverId): Builder
+    {
+        return $query->where('driver_id', $driverId)->activeWithDriver();
     }
 }

@@ -1,12 +1,18 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { modules, getActiveModule } from '../../navigation';
+import { modulesForUser, getActiveModule } from '../../navigation';
 import { useSidebar } from './SidebarContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { useWhatsAppUnread } from '../../contexts/WhatsAppUnreadContext';
 
 function ModuleItem({ mod, collapsed, onNavigate }) {
     const location = useLocation();
-    const active = getActiveModule(location.pathname)?.id === mod.id;
+    const { user } = useAuth();
+    const { unreadCount } = useWhatsAppUnread();
+    const active = getActiveModule(location.pathname, user)?.id === mod.id;
     const Icon = mod.icon;
+    const badge =
+        mod.badgeKey === 'whatsapp' ? unreadCount : mod.badge ? Number(mod.badge) : 0;
 
     return (
         <NavLink
@@ -23,12 +29,12 @@ function ModuleItem({ mod, collapsed, onNavigate }) {
         >
             <Icon className="h-[18px] w-[18px] shrink-0 opacity-90" strokeWidth={2} />
             {!collapsed ? <span className="flex-1 truncate">{mod.label}</span> : null}
-            {!collapsed && mod.badge ? (
+            {!collapsed && badge > 0 ? (
                 <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[11px] font-semibold text-white">
-                    {mod.badge}
+                    {badge > 99 ? '99+' : badge}
                 </span>
             ) : null}
-            {collapsed && mod.badge ? (
+            {collapsed && badge > 0 ? (
                 <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-emerald-500" />
             ) : null}
         </NavLink>
@@ -37,7 +43,9 @@ function ModuleItem({ mod, collapsed, onNavigate }) {
 
 export default function Sidebar() {
     const { collapsed, mobileOpen, closeMobile, toggleCollapsed } = useSidebar();
+    const { user } = useAuth();
     const compact = collapsed && !mobileOpen;
+    const navModules = modulesForUser(user);
 
     return (
         <>
@@ -70,7 +78,7 @@ export default function Sidebar() {
                         <div className="min-w-0 flex-1">
                             <div className="truncate text-lg font-bold tracking-tight">Lavafast</div>
                             <div className="truncate text-[11px] font-medium text-slate-400">
-                                Livraison
+                                {user?.is_livreur ? 'Espace livreur' : 'Livraison'}
                             </div>
                         </div>
                     ) : null}
@@ -85,7 +93,7 @@ export default function Sidebar() {
                 </div>
 
                 <nav className="mt-4 flex-1 space-y-1 overflow-y-auto px-3 pb-4">
-                    {modules.map((mod) => (
+                    {navModules.map((mod) => (
                         <ModuleItem
                             key={mod.id}
                             mod={mod}

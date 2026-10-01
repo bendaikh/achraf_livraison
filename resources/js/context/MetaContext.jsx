@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import api from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const MetaContext = createContext(null);
 
@@ -8,10 +9,17 @@ const MetaContext = createContext(null);
  * from /api/meta. No status list is hard-coded in the frontend.
  */
 export function MetaProvider({ children }) {
+    const { user } = useAuth();
+    // Admin reference data only: the driver space (Mes missions) and the login page don't need it.
+    const canLoad = Boolean(user) && !(user.is_livreur || user.role === 'livreur');
     const [meta, setMeta] = useState(null);
     const [error, setError] = useState(null);
 
     const reload = useCallback(async () => {
+        if (!canLoad) {
+            setMeta(null);
+            return;
+        }
         try {
             const { data } = await api.get('/meta');
             setMeta(data);
@@ -19,7 +27,7 @@ export function MetaProvider({ children }) {
         } catch (e) {
             setError(e);
         }
-    }, []);
+    }, [canLoad]);
 
     useEffect(() => {
         reload();

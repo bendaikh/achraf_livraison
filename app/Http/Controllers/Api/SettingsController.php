@@ -21,6 +21,8 @@ class SettingsController extends Controller
             'enforce_status_transitions' => ['sometimes', 'boolean'],
             'status_on_confirm_id' => ['sometimes', 'nullable', 'integer', 'exists:delivery_statuses,id'],
             'status_on_assign_id' => ['sometimes', 'nullable', 'integer', 'exists:delivery_statuses,id'],
+            'driver_action_status_ids' => ['sometimes', 'array'],
+            'driver_action_status_ids.*' => ['nullable', 'integer', 'exists:delivery_statuses,id'],
             'default_tariffs' => ['sometimes', 'array'],
             'default_tariffs.livraison' => ['required_with:default_tariffs', 'numeric', 'min:0'],
             'default_tariffs.ramassage' => ['required_with:default_tariffs', 'numeric', 'min:0'],
@@ -28,6 +30,9 @@ class SettingsController extends Controller
             'default_tariffs.retour' => ['required_with:default_tariffs', 'numeric', 'min:0'],
             'default_tariffs.echange' => ['required_with:default_tariffs', 'numeric', 'min:0'],
         ]);
+        if (isset($data['driver_action_status_ids'])) {
+            $data['driver_action_status_ids'] = array_intersect_key($data['driver_action_status_ids'], \App\Support\Catalog::DRIVER_ACTIONS);
+        }
         if (isset($data['default_tariffs'])) {
             $data['default_tariffs'] = array_map('floatval', array_intersect_key(
                 $data['default_tariffs'], Setting::DEFAULTS['default_tariffs']
@@ -49,6 +54,7 @@ class SettingsController extends Controller
             'enforce_status_transitions' => (bool) Setting::getValue('enforce_status_transitions', false),
             'status_on_confirm_id' => Setting::getValue('status_on_confirm_id'),
             'status_on_assign_id' => Setting::getValue('status_on_assign_id'),
+            'driver_action_status_ids' => (object) (array) Setting::getValue('driver_action_status_ids', []),
         ];
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\DeliveryStatusResource;
+use App\Models\ConfirmationStatus;
 use App\Models\DeliveryStatus;
 use App\Models\Driver;
 use App\Models\Setting;
@@ -21,7 +22,10 @@ class MetaController extends Controller
         return response()->json([
             'statuses' => DeliveryStatusResource::collection(DeliveryStatus::active()->ordered()->get()),
             'status_categories' => Catalog::toOptions(Catalog::STATUS_CATEGORIES),
-            'confirmation_statuses' => Catalog::toOptions(Catalog::CONFIRMATION_STATUSES),
+            // Configurable confirmation statuses (confirmation_statuses table).
+            'confirmation_statuses' => ConfirmationStatus::query()->active()->ordered()->get()
+                ->map(fn (ConfirmationStatus $s) => ['value' => $s->code, 'label' => $s->name, 'color' => $s->color, 'type' => $s->type])
+                ->values(),
             'mission_types' => Catalog::toOptions(Catalog::MISSION_TYPES),
             'mission_statuses' => Catalog::toOptions(Catalog::MISSION_STATUSES),
             'required_field_catalog' => Catalog::toOptions(Catalog::REQUIRED_FIELDS),
@@ -29,8 +33,9 @@ class MetaController extends Controller
             'payment_methods' => Catalog::toOptions(Catalog::PAYMENT_METHODS),
             'drivers' => Driver::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'default_tariffs' => Setting::defaultTariffs(),
-            'users' => User::query()->orderBy('name')->get(['id', 'name']),
-            'current_user' => $user ? ['id' => $user->id, 'name' => $user->name] : null,
+            'users' => User::query()->where('role', '!=', User::ROLE_LIVREUR)->orderBy('name')->get(['id', 'name']),
+            'driver_actions' => Catalog::toOptions(Catalog::DRIVER_ACTIONS),
+            'current_user' => $user ? ['id' => $user->id, 'name' => $user->name, 'role' => $user->role] : null,
         ]);
     }
 }

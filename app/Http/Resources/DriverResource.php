@@ -13,13 +13,16 @@ class DriverResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'phone' => $this->phone,
-            'email' => $this->email,
+            // Login e-mail of the driver's own account (role livreur).
+            'email' => $this->user?->email,
+            'user_id' => $this->user_id,
+            'has_account' => (bool) $this->user_id,
             'city' => $this->city,
             'vehicle' => $this->vehicle,
-            'is_active' => $this->is_active,
+            'is_active' => (bool) $this->is_active,
             'notes' => $this->notes,
             'tariffs' => $this->tariffs(),
-            'stats' => $this->when(isset($this->stats), fn () => $this->stats),
+            'stats' => $this->when($this->getAttribute('stats') !== null, fn () => $this->getAttribute('stats')),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

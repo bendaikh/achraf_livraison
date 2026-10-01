@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\DeliveryStatus;
 use App\Models\Driver;
 use App\Models\Order;
+use App\Models\User;
 use App\Services\ClosingService;
 use App\Services\MissionService;
 use App\Services\OrderWorkflow;
@@ -24,18 +25,28 @@ class DemoSeeder extends Seeder
         $missions = app(MissionService::class);
         $now = Carbon::now()->toImmutable();
 
-        $yassine = Driver::create([
-            'name' => 'Yassine Alaoui', 'phone' => '06 61 23 45 67', 'city' => 'Casablanca', 'vehicle' => 'Moto',
+        // Each demo driver gets his own login (role livreur, password "password").
+        $makeDriver = function (string $name, string $email, array $attrs) {
+            $user = User::query()->updateOrCreate(['email' => $email], [
+                'name' => $name, 'password' => 'password', 'role' => User::ROLE_LIVREUR, 'email_verified_at' => now(),
+            ]);
+
+            return Driver::create(['name' => $name, 'user_id' => $user->id] + $attrs);
+        };
+        $yassine = $makeDriver('Yassine Alaoui', 'yassine@demo.lavfast', [
+            'phone' => '06 61 23 45 67', 'city' => 'Casablanca', 'vehicle' => 'Moto',
             'tariff_livraison' => 20, 'tariff_ramassage' => 10, 'tariff_depot_partenaire' => 6, 'tariff_retour' => 7, 'tariff_echange' => 7,
         ]);
-        $achraf = Driver::create([
-            'name' => 'Achraf Benali', 'phone' => '06 70 11 22 33', 'city' => 'Casablanca', 'vehicle' => 'Moto',
+        $achraf = $makeDriver('Achraf Benali', 'achraf@demo.lavfast', [
+            'phone' => '06 70 11 22 33', 'city' => 'Casablanca', 'vehicle' => 'Moto',
             'tariff_livraison' => 22, 'tariff_ramassage' => 12, 'tariff_depot_partenaire' => 7, 'tariff_retour' => 8, 'tariff_echange' => 9,
         ]);
-        $karim = Driver::create([
-            'name' => 'Karim Tazi', 'phone' => '07 12 98 76 54', 'city' => 'Rabat', 'vehicle' => 'Voiture',
+        $karim = $makeDriver('Karim Tazi', 'karim@demo.lavfast', [
+            'phone' => '07 12 98 76 54', 'city' => 'Rabat', 'vehicle' => 'Voiture',
             'tariff_livraison' => 18, 'tariff_ramassage' => 9, 'tariff_depot_partenaire' => 5, 'tariff_retour' => 6, 'tariff_echange' => 6,
         ]);
+        $admin = User::query()->whereIn('role', [User::ROLE_SUPERADMIN, User::ROLE_ADMIN])->orderBy('id')->first();
+        auth()->setUser($admin); // history entries are attributed to the admin
 
         $s = DeliveryStatus::pluck('id', 'code');
         $status = fn (string $code) => DeliveryStatus::find($s[$code]);
@@ -75,20 +86,22 @@ class DemoSeeder extends Seeder
             }
             Carbon::setTestNow($at);
 
-            $order = Order::create([
+            $order = Order::create(Order::attributesFromForm([
                 'customer_name' => $client, 'customer_phone' => $phone, 'city' => $city,
                 'address' => rand(1, 120).', Rue '.['Ibn Batouta', 'Al Massira', 'Hassan II', 'Zerktouni', 'Anfa'][rand(0, 4)],
                 'product_name' => $product, 'quantity' => 1, 'amount' => $amount, 'payment_method' => 'cod',
-                'source' => $source, 'assigned_user_id' => 1,
-            ]);
+                'source' => $source, 'assigned_user_id' => $admin?->id,
+            ]) + ['currency' => 'MAD']);
+            $order->appendHistory('received', 'Commande reçue ('.$source.')');
+            $order->save();
 
             $step = fn (int $minutes) => Carbon::setTestNow(Carbon::now()->addMinutes($minutes));
 
             match ($scenario) {
                 'a_confirmer' => null,
-                'pas_de_reponse_conf' => $workflow->changeConfirmation($order, 'pas_de_reponse'),
-                'annulee_conf' => $workflow->changeConfirmation($order, 'annulee'),
-                default => $workflow->changeConfirmation($order, 'confirmee'),
+                'pas_de_reponse_conf' => $workflow->changeConfirmation($order, 'no_answer'),
+                'annulee_conf' => $workflow->changeConfirmation($order, 'cancelled', null, ['reason' => 'Client ne veut plus la commande']),
+                default => $workflow->changeConfirmation($order, 'confirmed'),
             };
 
             if ($driver) {
@@ -98,14 +111,14 @@ class DemoSeeder extends Seeder
 
             $step(45);
             match ($scenario) {
-                'en_cours' => $workflow->changeStatus($order, $status('en_cours')),
-                'livree' => [$workflow->changeStatus($order, $status('en_cours')), $step(60), $workflow->changeStatus($order, $status('livree'), ['collected_amount' => $amount])],
-                'reportee' => [$workflow->changeStatus($order, $status('en_cours')), $step(30), $workflow->changeStatus($order, $status('reportee'), ['postponed_at' => $now->copy()->subHours(1)->format('Y-m-d H:i'), 'reason' => 'Client en déplacement'])],
-                'echouee' => [$workflow->changeStatus($order, $status('en_cours')), $step(30), $workflow->changeStatus($order, $status('echouee'), ['reason' => 'Adresse introuvable'])],
-                'pas_de_reponse' => [$workflow->changeStatus($order, $status('en_cours')), $step(30), $workflow->changeStatus($order, $status('pas_de_reponse'))],
-                'retour' => [$workflow->changeStatus($order, $status('en_cours')), $step(30), $workflow->changeStatus($order, $status('retour'), ['reason' => 'Refusé par le client'])],
-                'echange' => [$workflow->changeStatus($order, $status('en_cours')), $step(30), $workflow->changeStatus($order, $status('echange'))],
-                'annulee' => $workflow->changeStatus($order, $status('annulee'), ['reason' => 'Client a annulé']),
+                'en_cours' => $workflow->changeStatus($order, $status('in_progress')),
+                'livree' => [$workflow->changeStatus($order, $status('in_progress')), $step(60), $workflow->changeStatus($order, $status('delivered'), ['collected_amount' => $amount])],
+                'reportee' => [$workflow->changeStatus($order, $status('in_progress')), $step(30), $workflow->changeStatus($order, $status('postponed'), ['postponed_at' => $now->copy()->subHours(1)->format('Y-m-d H:i'), 'reason' => 'Client en déplacement'])],
+                'echouee' => [$workflow->changeStatus($order, $status('in_progress')), $step(30), $workflow->changeStatus($order, $status('failed'), ['reason' => 'Adresse introuvable'])],
+                'pas_de_reponse' => [$workflow->changeStatus($order, $status('in_progress')), $step(30), $workflow->changeStatus($order, $status('no_answer'), ['reason' => 'Client injoignable'])],
+                'retour' => [$workflow->changeStatus($order, $status('in_progress')), $step(30), $workflow->changeStatus($order, $status('returned'), ['reason' => 'Refusé par le client'])],
+                'echange' => [$workflow->changeStatus($order, $status('in_progress')), $step(30), $workflow->changeStatus($order, $status('exchanged'))],
+                'annulee' => $workflow->changeStatus($order, $status('cancelled'), ['reason' => 'Client a annulé']),
                 default => null,
             };
         }

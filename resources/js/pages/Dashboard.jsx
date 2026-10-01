@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { CalendarDays, ClipboardList, PackagePlus, Plus, Warehouse } from 'lucide-react';
 import api, { errorMessage } from '../lib/api';
-import { useMeta } from '../context/MetaContext';
 import { formatDate } from '../lib/format';
 import { Alert, Button, Spinner } from '../components/ui';
 import DashboardFilters, { DEFAULT_FILTERS } from '../components/dashboard/DashboardFilters';
@@ -15,11 +15,14 @@ import RecentOrders from '../components/dashboard/RecentOrders';
 import StatusBreakdown from '../components/dashboard/StatusBreakdown';
 import IntegrationsBanner from '../components/dashboard/IntegrationsBanner';
 import MissionDrawer from '../components/missions/MissionDrawer';
+import { useAuth } from '../contexts/AuthContext';
 
 const REFRESH_MS = 60000;
 
 export default function Dashboard() {
-    const meta = useMeta();
+    const { user } = useAuth();
+    const navigate = useNavigate();
+    const firstName = user?.name?.split(/\s+/)[0] || '';
     const [filters, setFilters] = useState(DEFAULT_FILTERS);
     const [data, setData] = useState(null);
     const [error, setError] = useState(null);
@@ -52,7 +55,7 @@ export default function Dashboard() {
         <div className="space-y-3 sm:space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                    <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Bonjour {meta.currentUser?.name || ''} 👋</h1>
+                    <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Bonjour {firstName} 👋</h1>
                     <p className="mt-0.5 flex items-center gap-1.5 text-sm font-medium text-slate-500">
                         <CalendarDays className="h-4 w-4" /> {p?.label} · {periodText}
                     </p>
@@ -67,7 +70,7 @@ export default function Dashboard() {
                     <Button variant="secondary" disabled title="Bientôt disponible">
                         <Plus className="h-4 w-4" /> Créer une mission
                     </Button>
-                    <Button variant="secondary" disabled title="Bientôt disponible">
+                    <Button variant="secondary" onClick={() => navigate('/a-attribuer')}>
                         <ClipboardList className="h-4 w-4" /> Affecter une commande
                     </Button>
                 </div>

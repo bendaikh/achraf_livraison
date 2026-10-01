@@ -8,13 +8,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('delivery_statuses', function (Blueprint $table) {
-            // e.g. ["postponed_at"], ["reason"], ["collected_amount"] — enforced on status change.
-            $table->json('required_fields')->nullable();
-            // Optional mission generated for the order's driver when entering this status (retour / echange).
-            $table->string('creates_mission_type', 30)->nullable();
-        });
-
         // Allowed workflow transitions (enforcement is a company setting).
         Schema::create('status_transitions', function (Blueprint $table) {
             $table->id();
@@ -48,8 +41,5 @@ return new class extends Migration
     {
         Schema::dropIfExists('order_status_histories');
         Schema::dropIfExists('status_transitions');
-        Schema::table('delivery_statuses', function (Blueprint $table) {
-            $table->dropColumn(['required_fields', 'creates_mission_type']);
-        });
     }
 };

@@ -40,6 +40,13 @@ class DeliveryStatusController extends Controller
     public function update(Request $request, DeliveryStatus $deliveryStatus)
     {
         $data = $request->validate($this->rules($deliveryStatus, true));
+        // Orders reference statuses by code: a used status keeps its code forever.
+        if (isset($data['code']) && $data['code'] !== $deliveryStatus->code && $deliveryStatus->isUsed()) {
+            return response()->json([
+                'message' => 'Ce statut est déjà utilisé : son code interne ne peut plus être modifié.',
+                'errors' => ['code' => ['Ce statut est déjà utilisé : son code interne ne peut plus être modifié.']],
+            ], 422);
+        }
         $deliveryStatus->update($data);
 
         return new DeliveryStatusResource($this->reload($deliveryStatus));
