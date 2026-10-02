@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\MissionResource;
+use App\Models\LogisticsPartner;
 use App\Models\Mission;
 use App\Services\MissionService;
 use App\Support\Catalog;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class MissionController extends Controller
 {
@@ -52,7 +54,11 @@ class MissionController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate($this->rules());
+        $rules = $this->rules();
+        $rules['logistics_partner_id'] = ['nullable', 'integer'];
+        $rules['contact_name'] = ['required_without:logistics_partner_id', 'nullable', 'string', 'max:255'];
+        $data = $request->validate($rules);
+        $data = $this->applyPartner($request, $data);
         $mission = $this->service->create($data);
 
         return (new MissionResource($mission->fresh()->load(['driver', 'order'])))->response()->setStatusCode(201);
@@ -83,6 +89,42 @@ class MissionController extends Controller
         $this->service->changeStatus($mission, $data['status'], $data['note'] ?? null);
 
         return new MissionResource($mission->fresh()->load(['driver', 'order', 'histories.user']));
+    }
+
+    /**
+     * Saved partner chosen in the drawer: it must belong to the user's company, be active and match
+     * the mission category (ramassage / dépôt; "Les deux" fits both). Fields the user typed for this
+     * mission win over the partner record (override for this mission only — the partner is untouched);
+     * empty fields are filled from the partner. A snapshot of the partner record is frozen on the mission.
+     */
+    protected function applyPartner(Request $request, array $data): array
+    {
+        if (empty($data['logistics_partner_id'])) {
+            unset($data['logistics_partner_id']);
+
+            return $data;
+        }
+
+        $partner = LogisticsPartner::query()
+            ->forCompany($request->user()->resolveCompanyId())
+            ->find($data['logistics_partner_id']);
+        $category = LogisticsPartner::MISSION_TYPE_CATEGORY[$data['type']] ?? null;
+
+        if (! $partner || ! $partner->is_active || ! $category || ! $partner->supportsCategory($category)) {
+            throw ValidationException::withMessages([
+                'logistics_partner_id' => 'Partenaire introuvable, inactif ou non disponible pour ce type de mission.',
+            ]);
+        }
+
+        foreach (['contact_name' => 'name', 'phone' => 'phone', 'city' => 'city', 'address' => 'address'] as $field => $source) {
+            if (! isset($data[$field]) || trim((string) $data[$field]) === '') {
+                $data[$field] = $partner->{$source};
+            }
+        }
+        $data['logistics_partner_id'] = $partner->id;
+        $data['partner_snapshot'] = $partner->snapshot();
+
+        return $data;
     }
 
     protected function rules(): array

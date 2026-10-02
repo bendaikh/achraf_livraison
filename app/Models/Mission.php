@@ -17,7 +17,7 @@ class Mission extends Model
     protected $fillable = [
         'reference', 'type', 'status', 'order_id', 'driver_id', 'contact_name', 'phone', 'address', 'city',
         'items_description', 'quantity', 'scheduled_date', 'time_slot', 'cash_amount', 'cash_direction',
-        'note', 'completed_at', 'driver_price', 'assigned_at', 'closing_id',
+        'note', 'completed_at', 'driver_price', 'assigned_at', 'closing_id', 'logistics_partner_id', 'partner_snapshot',
     ];
 
     protected $attributes = [
@@ -32,6 +32,7 @@ class Mission extends Model
         'driver_price' => 'decimal:2',
         'cash_amount' => 'decimal:2',
         'quantity' => 'integer',
+        'partner_snapshot' => 'array',
     ];
 
     protected static function booted(): void
@@ -48,6 +49,11 @@ class Mission extends Model
     public function driver()
     {
         return $this->belongsTo(Driver::class);
+    }
+
+    public function logisticsPartner()
+    {
+        return $this->belongsTo(LogisticsPartner::class);
     }
 
     public function order()

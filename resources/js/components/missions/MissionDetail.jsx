@@ -47,6 +47,12 @@ export default function MissionDetail({ missionId, onClose, onChanged }) {
                 <div className="space-y-4">
                     <ColorBadge color={meta.missionStatusMap[mission.status]?.color} label={meta.missionStatusMap[mission.status]?.label} />
                     <dl className="grid grid-cols-2 gap-3">
+                        {mission.partner_snapshot
+                            ? row(
+                                  'Partenaire (fiche à la création)',
+                                  [mission.partner_snapshot.name, mission.partner_snapshot.phone, mission.partner_snapshot.city].filter(Boolean).join(' · '),
+                              )
+                            : null}
                         {row('Contact / destination', mission.contact_name)}
                         {row('Téléphone', mission.phone)}
                         {row('Adresse', mission.address)}

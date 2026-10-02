@@ -109,6 +109,7 @@ export const modules = [
         tabs: [
             { to: '/parametres', label: 'Société & tarifs', end: true },
             { to: '/parametres/statuts', label: 'Statuts de livraison' },
+            { to: '/parametres/partenaires', label: 'Partenaires logistiques' },
         ],
     },
 ];

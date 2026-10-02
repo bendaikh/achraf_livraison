@@ -30,6 +30,11 @@ class Company extends Model
         return $this->hasMany(WhatsAppAccount::class);
     }
 
+    public function logisticsPartners(): HasMany
+    {
+        return $this->hasMany(LogisticsPartner::class);
+    }
+
     public static function default(): self
     {
         return static::query()->firstOrCreate(

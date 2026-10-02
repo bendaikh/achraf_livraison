@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\ClosingController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DeliveryStatusController;
 use App\Http\Controllers\Api\DriverController;
+use App\Http\Controllers\Api\LogisticsPartnerController;
 use App\Http\Controllers\Api\MetaController;
 use App\Http\Controllers\Api\MissionController;
 use App\Http\Controllers\Api\OrderController;
@@ -29,6 +30,15 @@ Route::middleware(['web', 'auth', 'admin.access'])->group(function () {
     Route::delete('delivery-statuses/{deliveryStatus}', [DeliveryStatusController::class, 'destroy']);
     Route::put('delivery-statuses/{deliveryStatus}/transitions', [DeliveryStatusController::class, 'updateTransitions']);
     Route::get('status-transitions', [DeliveryStatusController::class, 'transitions']);
+
+    // Paramètres → Partenaires logistiques (scoped to the user's company)
+    Route::get('logistics-partners', [LogisticsPartnerController::class, 'index']);
+    Route::post('logistics-partners', [LogisticsPartnerController::class, 'store']);
+    Route::put('logistics-partners/{logisticsPartner}', [LogisticsPartnerController::class, 'update']);
+    Route::delete('logistics-partners/{logisticsPartner}', [LogisticsPartnerController::class, 'destroy']);
+    Route::post('logistics-partners/{logisticsPartner}/deactivate', [LogisticsPartnerController::class, 'deactivate']);
+    Route::post('logistics-partners/{logisticsPartner}/activate', [LogisticsPartnerController::class, 'activate']);
+    Route::post('logistics-partners/{logisticsPartner}/favorite', [LogisticsPartnerController::class, 'favorite']);
 
     Route::get('orders', [OrderController::class, 'index']);
     Route::post('orders', [OrderController::class, 'store']);

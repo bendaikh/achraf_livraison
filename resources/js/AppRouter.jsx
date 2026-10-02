@@ -12,6 +12,7 @@ const Missions = lazy(() => import('./pages/Missions'));
 const Closing = lazy(() => import('./pages/Closing'));
 const Settings = lazy(() => import('./pages/Settings'));
 const StatusSettings = lazy(() => import('./pages/StatusSettings'));
+const LogisticsPartners = lazy(() => import('./pages/LogisticsPartners'));
 const Confirmation = lazy(() => import('./pages/Confirmation'));
 const Assignment = lazy(() => import('./pages/Assignment'));
 const Drivers = lazy(() => import('./pages/Drivers'));
@@ -185,6 +186,14 @@ export default function AppRouter() {
                         element={
                             <AdminRoute>
                                 <StatusSettings />
+                            </AdminRoute>
+                        }
+                    />
+                    <Route
+                        path="parametres/partenaires"
+                        element={
+                            <AdminRoute>
+                                <LogisticsPartners />
                             </AdminRoute>
                         }
                     />
