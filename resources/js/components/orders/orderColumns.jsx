@@ -15,13 +15,14 @@ export const ORDER_COLUMNS = [
     { key: 'status', label: 'Statut' },
     { key: 'confirmation', label: 'Confirmation' },
     { key: 'driver', label: 'Livreur / transporteur' },
+    { key: 'speedaf', label: 'Suivi Speedaf' },
     { key: 'assigned_user', label: 'Utilisateur assigné' },
     { key: 'source', label: 'Source' },
     { key: 'date', label: 'Date' },
 ];
 
 export const DEFAULT_COLUMN_PREFS = {
-    desktop: ['reference', 'product', 'customer', 'phone', 'city', 'amount', 'status', 'confirmation', 'driver', 'date'],
+    desktop: ['reference', 'product', 'customer', 'phone', 'city', 'amount', 'status', 'confirmation', 'driver', 'speedaf', 'date'],
     mobile: ['customer', 'city', 'amount', 'status'],
 };
 
@@ -64,6 +65,17 @@ export function renderCell(key, order, meta) {
         }
         case 'driver':
             return order.driver?.name || order.carrier || '—';
+        case 'speedaf':
+            return order.speedaf ? (
+                <div className="leading-tight">
+                    <div className="font-mono text-xs font-semibold text-slate-700">{order.speedaf.bill_code}</div>
+                    <div className="max-w-[170px] truncate text-[11px] text-orange-600" title={order.speedaf.status_message || ''}>
+                        {order.speedaf.status_label || 'Créée'}
+                    </div>
+                </div>
+            ) : (
+                '—'
+            );
         case 'assigned_user':
             return order.assigned_user?.name || '—';
         case 'source':

@@ -11,7 +11,6 @@ const titles = {
     '/utilisateurs': 'Utilisateurs',
     '/parametres': 'Paramètres',
     '/integrations/ozone': 'Ozone Delivery',
-    '/integrations/speedaf': 'Speedaf',
     '/integrations/shopify': 'Shopify',
 };
 

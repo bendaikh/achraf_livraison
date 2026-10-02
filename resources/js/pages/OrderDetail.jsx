@@ -7,6 +7,7 @@ import { formatDH, formatDateTime, formatDate } from '../lib/format';
 import { Alert, Card, EmptyState, Select, Spinner, Field } from '../components/ui';
 import { ColorBadge, StatusBadge } from '../components/ui/Badge';
 import StatusChangeForm from '../components/orders/StatusChangeForm';
+import SpeedafOrderCard from '../components/orders/SpeedafOrderCard';
 
 function Info({ label, children }) {
     return (
@@ -205,6 +206,8 @@ export default function OrderDetail() {
                             </Select>
                         </Field>
                     </Card>
+
+                    <SpeedafOrderCard order={order} onChanged={setOrder} />
 
                     <Card title="Statut de livraison">
                         <div className="mb-3 flex items-center gap-2 text-sm text-slate-500">

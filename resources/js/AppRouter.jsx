@@ -22,6 +22,7 @@ const NotFound = lazy(() => import('./pages/NotFound'));
 const Login = lazy(() => import('./pages/Login'));
 const Profile = lazy(() => import('./pages/Profile'));
 const ShopifyIntegration = lazy(() => import('./pages/ShopifyIntegration'));
+const SpeedafIntegration = lazy(() => import('./pages/SpeedafIntegration'));
 const WhatsAppInbox = lazy(() => import('./pages/whatsapp/WhatsAppInbox'));
 const WhatsAppAccounts = lazy(() => import('./pages/whatsapp/WhatsAppAccounts'));
 const WhatsAppTemplates = lazy(() => import('./pages/whatsapp/WhatsAppTemplates'));
@@ -209,7 +210,7 @@ export default function AppRouter() {
                         path="integrations/speedaf"
                         element={
                             <AdminRoute>
-                                <PlaceholderPage />
+                                <SpeedafIntegration />
                             </AdminRoute>
                         }
                     />

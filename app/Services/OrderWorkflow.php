@@ -242,6 +242,24 @@ class OrderWorkflow
     }
 
     /** Driver "prise en charge" on his first action: moves an assigned order to the "en livraison" status. */
+    /**
+     * Status pushed by an external carrier (Speedaf tracking sync / webhook). Skips the manual
+     * transition rules and required-field checks (the carrier is the source of truth) but goes
+     * through the same history / mission synchronisation as a manual change.
+     */
+    public function applyCarrierStatus(Order $order, DeliveryStatus $status, array $data = [], ?string $note = null): Order
+    {
+        if ($order->delivery_status === $status->code) {
+            return $order;
+        }
+
+        return DB::transaction(function () use ($order, $status, $data, $note) {
+            $this->applyStatus($order, $status, $data, $note, null);
+
+            return $order;
+        });
+    }
+
     public function takeByDriver(Order $order, ?User $user = null): void
     {
         if ($order->delivery_taken_at) {

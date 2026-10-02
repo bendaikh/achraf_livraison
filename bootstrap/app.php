@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'shopify/webhooks',
             'whatsapp/webhooks',
+            'speedaf/webhook/*',
         ]);
         $middleware->alias([
             'admin.access' => \App\Http\Middleware\EnsureAdminAccess::class,

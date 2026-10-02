@@ -23,7 +23,7 @@ class OrderController extends Controller
 
     public function index(Request $request)
     {
-        $q = Order::query()->with(['deliveryStatus', 'driver', 'assignedUser', 'shop:id,shop_domain,shop_name']);
+        $q = Order::query()->with(['deliveryStatus', 'driver', 'assignedUser', 'shop:id,shop_domain,shop_name', 'speedafShipments']);
 
         $search = trim((string) ($request->query('q') ?? $request->query('search', '')));
         if ($search !== '') {
@@ -54,6 +54,12 @@ class OrderController extends Controller
             $request->query('driver_id') === 'none'
                 ? $q->whereNull('driver_id')
                 : $q->where('driver_id', $request->integer('driver_id'));
+        }
+        if ($request->filled('speedaf')) {
+            $active = fn ($w) => $w->where('state', '!=', \App\Models\SpeedafShipment::STATE_CANCELLED);
+            $request->query('speedaf') === '1'
+                ? $q->whereHas('speedafShipments', $active)
+                : $q->whereDoesntHave('speedafShipments', $active);
         }
         if ($request->filled('date_from')) {
             $q->where('created_at', '>=', Carbon::parse($request->query('date_from'))->startOfDay());
@@ -151,7 +157,7 @@ class OrderController extends Controller
 
     protected function detailRelations(): array
     {
-        return ['deliveryStatus', 'driver', 'assignedUser', 'shop:id,shop_domain,shop_name', 'missions.driver', 'histories.user'];
+        return ['deliveryStatus', 'driver', 'assignedUser', 'shop:id,shop_domain,shop_name', 'missions.driver', 'histories.user', 'speedafShipments'];
     }
 
     protected function validated(Request $request, bool $partial = false): array

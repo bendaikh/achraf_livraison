@@ -10,6 +10,8 @@ use App\Http\Controllers\Api\MissionController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PreferenceController;
 use App\Http\Controllers\Api\SettingsController;
+use App\Http\Controllers\Api\SpeedafIntegrationController;
+use App\Http\Controllers\Api\SpeedafOrderController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -62,6 +64,18 @@ Route::middleware(['web', 'auth', 'admin.access'])->group(function () {
     // Per-user UI preferences (current user = auth user, else user #1).
     Route::get('preferences/{key}', [PreferenceController::class, 'show']);
     Route::put('preferences/{key}', [PreferenceController::class, 'update']);
+
+    // Intégrations → Speedaf (settings of the user's company) + Commandes actions
+    Route::get('integrations/speedaf', [SpeedafIntegrationController::class, 'show']);
+    Route::put('integrations/speedaf', [SpeedafIntegrationController::class, 'update']);
+    Route::post('integrations/speedaf/test', [SpeedafIntegrationController::class, 'test']);
+    Route::post('integrations/speedaf/webhook/subscribe', [SpeedafIntegrationController::class, 'subscribeWebhook']);
+    Route::post('integrations/speedaf/sync', [SpeedafIntegrationController::class, 'sync']);
+    Route::post('speedaf/orders/send', [SpeedafOrderController::class, 'send']);
+    Route::post('speedaf/labels', [SpeedafOrderController::class, 'labels']);
+    Route::post('speedaf/orders/{order}/cancel', [SpeedafOrderController::class, 'cancel']);
+    Route::post('speedaf/orders/{order}/sync', [SpeedafOrderController::class, 'sync']);
+    Route::get('speedaf/orders/{order}/label', [SpeedafOrderController::class, 'label']);
 
     // Clôture du jour (caisse livreurs)
     Route::get('closings', [ClosingController::class, 'index']);

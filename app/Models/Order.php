@@ -217,6 +217,21 @@ class Order extends Model
         return $this->hasMany(Mission::class);
     }
 
+    public function speedafShipments(): HasMany
+    {
+        return $this->hasMany(SpeedafShipment::class)->orderByDesc('id');
+    }
+
+    /** Current Speedaf waybill (latest not cancelled), from the loaded relation when available. */
+    public function currentSpeedafShipment(): ?SpeedafShipment
+    {
+        $list = $this->relationLoaded('speedafShipments')
+            ? $this->speedafShipments
+            : $this->speedafShipments()->get();
+
+        return $list->first(fn (SpeedafShipment $s) => $s->isActive());
+    }
+
     public function histories(): HasMany
     {
         return $this->hasMany(OrderStatusHistory::class)->orderByDesc('created_at')->orderByDesc('id');

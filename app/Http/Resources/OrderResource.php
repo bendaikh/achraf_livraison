@@ -48,6 +48,9 @@ class OrderResource extends JsonResource
             'carrier' => $this->carrier,
             'assigned_user_id' => $this->assigned_user_id,
             'assigned_user' => $this->whenLoaded('assignedUser', fn () => $this->assignedUser ? ['id' => $this->assignedUser->id, 'name' => $this->assignedUser->name] : null),
+            // Speedaf waybill (null when never sent / cancelled), only when the relation is loaded.
+            'speedaf' => $this->when($this->relationLoaded('speedafShipments'), fn () => $this->currentSpeedafShipment()?->toSummary()),
+            'speedaf_history' => $this->when($this->relationLoaded('speedafShipments') && $this->relationLoaded('histories'), fn () => $this->speedafShipments->map(fn ($s) => $s->toSummary() + ['tracks' => $s->tracks ?? []])->values()),
             'source' => $this->sourceLabel(),
             'note' => $this->note,
             'internal_note' => $this->internal_note,

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Layers, Plus, RotateCcw, Search, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, RotateCcw, Search, X } from 'lucide-react';
 import api, { errorMessage } from '../lib/api';
 import { useMeta } from '../context/MetaContext';
 import useUserPreference from '../hooks/useUserPreference';
@@ -8,9 +8,10 @@ import useSelection from '../hooks/useSelection';
 import { Alert, Button, Card, Checkbox, EmptyState, Input, PageHeader, Select, Spinner } from '../components/ui';
 import ColumnSelector from '../components/orders/ColumnSelector';
 import OrderForm from '../components/orders/OrderForm';
+import SpeedafBulkActions from '../components/orders/SpeedafBulkActions';
 import { DEFAULT_COLUMN_PREFS, ORDER_COLUMNS, renderCell } from '../components/orders/orderColumns';
 
-const FILTER_KEYS = ['q', 'delivery_status_id', 'status_category', 'confirmation_status', 'driver_id', 'date_from', 'date_to'];
+const FILTER_KEYS = ['q', 'delivery_status_id', 'status_category', 'confirmation_status', 'driver_id', 'speedaf', 'date_from', 'date_to'];
 
 export default function Orders() {
     const meta = useMeta();
@@ -98,7 +99,7 @@ export default function Orders() {
                     </div>
                     <ColumnSelector prefs={{ ...DEFAULT_COLUMN_PREFS, ...prefs }} onChange={setPrefs} />
                 </div>
-                <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-5">
+                <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-6">
                     <Select value={filters.delivery_status_id} onChange={(e) => setFilter('delivery_status_id', e.target.value)}>
                         <option value="">Tous les statuts</option>
                         {meta.statuses.map((s) => (
@@ -123,6 +124,11 @@ export default function Orders() {
                                 {d.name}
                             </option>
                         ))}
+                    </Select>
+                    <Select value={filters.speedaf} onChange={(e) => setFilter('speedaf', e.target.value)}>
+                        <option value="">Speedaf : toutes</option>
+                        <option value="1">Envoyées à Speedaf</option>
+                        <option value="0">Non envoyées</option>
                     </Select>
                     <Input type="date" value={filters.date_from} onChange={(e) => setFilter('date_from', e.target.value)} title="Du" />
                     <Input type="date" value={filters.date_to} onChange={(e) => setFilter('date_to', e.target.value)} title="Au" />
@@ -154,10 +160,8 @@ export default function Orders() {
             {selection.count > 0 ? (
                 <div className="sticky top-16 z-20 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm shadow-sm">
                     <span className="font-semibold text-blue-800">{selection.count} commande(s) sélectionnée(s)</span>
-                    <div className="flex items-center gap-2">
-                        <Button size="sm" variant="secondary" disabled title="Actions de masse bientôt disponibles">
-                            <Layers className="h-3.5 w-3.5" /> Actions groupées (bientôt)
-                        </Button>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <SpeedafBulkActions ids={selection.selectedIds} onDone={load} />
                         <Button size="sm" variant="ghost" onClick={selection.clear}>
                             Désélectionner
                         </Button>
