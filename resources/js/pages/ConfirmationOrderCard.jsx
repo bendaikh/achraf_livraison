@@ -21,6 +21,7 @@ export default function ConfirmationOrderCard({ order, onOpen }) {
                         </span>
                     </div>
                     <p className="mt-1.5 truncate text-sm font-semibold text-slate-800">
+                        {order.client_blocked ? <span className="mr-1.5 rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-700" title={order.client_blocked.reason}>Client bloqué</span> : null}
                         {order.customer_name || 'Client inconnu'}
                     </p>
                     <p className="mt-0.5 truncate text-xs font-medium text-slate-500">

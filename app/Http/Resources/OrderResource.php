@@ -2,7 +2,12 @@
 
 namespace App\Http\Resources;
 
+use App\Models\ClientBlock;
 use App\Models\ConfirmationStatus;
+use App\Services\Carriers\CarrierRegistry;
+use App\Services\Catalog\CatalogLookup;
+use App\Services\Catalog\OrderLines;
+use App\Services\OrderWorkflow;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -15,7 +20,7 @@ class OrderResource extends JsonResource
     public function toArray(Request $request): array
     {
         $status = $this->deliveryStatusDefinition();
-        $catalog = app(\App\Services\Catalog\CatalogLookup::class);
+        $catalog = app(CatalogLookup::class);
         $lines = $catalog->enrichOrder($this->resource);
         $firstImage = collect($lines)->pluck('image_url')->filter()->first();
 
@@ -29,12 +34,15 @@ class OrderResource extends JsonResource
             // Catalog photo (variant → product → line image), null = UI placeholder.
             'product_image' => $firstImage ?: $this->productImage(),
             'line_items' => $lines,
-            'items_subtotal' => \App\Services\Catalog\OrderLines::subtotal($lines),
+            'items_subtotal' => OrderLines::subtotal($lines),
             'items_edited_at' => $this->items_edited_at?->toIso8601String(),
             'has_out_of_stock' => collect($lines)->contains(fn ($l) => $l['out_of_stock'] === true),
             'quantity' => $this->itemsQuantity(),
             'customer_name' => $this->customer_name,
             'customer_phone' => $this->phone,
+            'client_key' => $this->phone_key,
+            // T9 — blocked client alert (Commandes, Confirmation).
+            'client_blocked' => ($b = ClientBlock::activeFor($this->phone_key)) ? ['reason' => $b->reason, 'comment' => $b->comment, 'blocked_at' => $b->blocked_at?->toIso8601String(), 'blocked_by_name' => $b->blocker?->name] : null,
             'email' => $this->email,
             'city' => $this->shippingCity(),
             'address' => $this->shippingAddressLine(),
@@ -60,7 +68,7 @@ class OrderResource extends JsonResource
             'assigned_user_id' => $this->assigned_user_id,
             'assigned_user' => $this->whenLoaded('assignedUser', fn () => $this->assignedUser ? ['id' => $this->assignedUser->id, 'name' => $this->assignedUser->name] : null),
             // Speedaf waybill (null when never sent / cancelled), only when the relation is loaded.
-            'shipment' => $this->when($this->relationLoaded('speedafShipments'), fn () => app(\App\Services\Carriers\CarrierRegistry::class)->shipmentFor($this->resource)),
+            'shipment' => $this->when($this->relationLoaded('speedafShipments'), fn () => app(CarrierRegistry::class)->shipmentFor($this->resource)),
             'speedaf' => $this->when($this->relationLoaded('speedafShipments'), fn () => $this->currentSpeedafShipment()?->toSummary()),
             'speedaf_history' => $this->when($this->relationLoaded('speedafShipments') && $this->relationLoaded('histories'), fn () => $this->speedafShipments->map(fn ($s) => $s->toSummary() + ['tracks' => $s->tracks ?? []])->values()),
             'source' => $this->sourceLabel(),
@@ -79,7 +87,7 @@ class OrderResource extends JsonResource
             'missions' => MissionResource::collection($this->whenLoaded('missions')),
             'histories' => OrderStatusHistoryResource::collection($this->whenLoaded('histories')),
             'timeline' => $this->when($this->relationLoaded('histories'), fn () => $this->confirmation_history ?? []),
-            'allowed_status_ids' => $this->when($this->relationLoaded('histories'), fn () => app(\App\Services\OrderWorkflow::class)->allowedStatusIds($this->resource)),
+            'allowed_status_ids' => $this->when($this->relationLoaded('histories'), fn () => app(OrderWorkflow::class)->allowedStatusIds($this->resource)),
         ];
     }
 }

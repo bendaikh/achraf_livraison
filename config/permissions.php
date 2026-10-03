@@ -23,6 +23,9 @@ return [
         'commissions.manage' => ['label' => 'Valider et payer les commissions des agents', 'roles' => ['admin']],
         'whatsapp.access' => ['label' => 'Accéder au module WhatsApp', 'roles' => ['admin', 'user']],
         'products.view' => ['label' => 'Voir le catalogue produits', 'roles' => ['admin', 'user']],
+        'clients.view' => ['label' => 'Voir les clients (fiche, historique, notes)', 'roles' => ['admin', 'user']],
+        'clients.block' => ['label' => 'Bloquer / débloquer un client', 'roles' => ['admin']],
+        'clients.groups' => ['label' => 'Gérer les groupes de clients', 'roles' => ['admin']],
         'products.sync' => ['label' => 'Synchroniser le catalogue Shopify', 'roles' => ['admin']],
     ],
 ];

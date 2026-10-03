@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Clients\ClientService;
 use App\Support\Catalog;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -112,6 +113,13 @@ class Order extends Model
 
     protected static function booted(): void
     {
+        // T9 — normalized phone = client identity (Clients module, block alerts).
+        static::saving(function (Order $order) {
+            if ($order->isDirty('phone') || $order->isDirty('shipping_address') || $order->phone_key === null) {
+                $order->phone_key = ClientService::key($order->phone ?: ($order->shipping_address['phone'] ?? null));
+            }
+        });
+
         // Manual orders get a readable number (Shopify orders keep theirs).
         static::created(function (Order $order) {
             if (! $order->order_number && ! $order->name) {

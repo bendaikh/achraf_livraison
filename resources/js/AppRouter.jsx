@@ -12,6 +12,8 @@ const Products = lazy(() => import('./pages/Products'));
 const Centre = lazy(() => import('./pages/Centre'));
 const ConfirmationCentre = lazy(() => import('./pages/ConfirmationCentre'));
 const Users = lazy(() => import('./pages/Users'));
+const Clients = lazy(() => import('./pages/Clients'));
+const ClientDetail = lazy(() => import('./pages/ClientDetail'));
 const TeamPerformance = lazy(() => import('./pages/TeamPerformance'));
 const TeamCommissions = lazy(() => import('./pages/TeamCommissions'));
 const TeamServices = lazy(() => import('./pages/TeamServices'));
@@ -274,6 +276,46 @@ export default function AppRouter() {
                         element={
                             <PermissionRoute ability="users.manage">
                                 <TeamServices />
+                            </PermissionRoute>
+                        }
+                    />
+                    <Route
+                        path="clients"
+                        element={
+                            <PermissionRoute ability="clients.view">
+                                <Clients />
+                            </PermissionRoute>
+                        }
+                    />
+                    <Route
+                        path="clients/bloques"
+                        element={
+                            <PermissionRoute ability="clients.view">
+                                <Clients />
+                            </PermissionRoute>
+                        }
+                    />
+                    <Route
+                        path="clients/segments"
+                        element={
+                            <PermissionRoute ability="clients.view">
+                                <Clients />
+                            </PermissionRoute>
+                        }
+                    />
+                    <Route
+                        path="clients/groupes"
+                        element={
+                            <PermissionRoute ability="clients.view">
+                                <Clients />
+                            </PermissionRoute>
+                        }
+                    />
+                    <Route
+                        path="clients/:key"
+                        element={
+                            <PermissionRoute ability="clients.view">
+                                <ClientDetail />
                             </PermissionRoute>
                         }
                     />

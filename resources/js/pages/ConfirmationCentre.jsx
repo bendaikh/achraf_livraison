@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { formatDH } from '../lib/format';
 import OrderItemsEditor from '../components/orders/OrderItemsEditor';
 import ConfirmationStats from '../components/confirmation/ConfirmationStats';
+import { BlockedClientAlert } from '../components/clients/ClientBadges';
 import { Alert, Button, Card, Field, Input, Select, Spinner, Textarea } from '../components/ui';
 import { formatHistoryDate, formatHistoryLine, orderDisplayName, statusBadgeStyle, telUrl } from './confirmationHelpers';
 
@@ -149,6 +150,8 @@ export default function ConfirmationCentre() {
             {!order ? (
                 <Spinner />
             ) : (
+                <>
+                <BlockedClientAlert block={order.full?.client_blocked || order.client_blocked} />
                 <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
                     {/* Main zone: order sheet */}
                     <div className="min-w-0 space-y-3">
@@ -232,6 +235,7 @@ export default function ConfirmationCentre() {
                         </Card>
                     </div>
                 </div>
+                </>
             )}
 
             {/* Mobile: actions always reachable at the bottom */}

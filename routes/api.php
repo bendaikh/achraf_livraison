@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\CarrierController;
 use App\Http\Controllers\Api\CentreController;
+use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\ClosingController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DeliveryStatusController;
@@ -28,6 +29,25 @@ use Illuminate\Support\Facades\Route;
 */
 Route::middleware(['web', 'auth', 'admin.access'])->group(function () {
     Route::get('meta', [MetaController::class, 'show']);
+
+    // T9 — Clients
+    Route::middleware('can:clients.view')->group(function () {
+        Route::get('clients', [ClientController::class, 'index']);
+        Route::get('clients/summary', [ClientController::class, 'summary']);
+        Route::get('clients/{key}', [ClientController::class, 'show'])->where('key', '[0-9]+');
+        Route::post('clients/{key}/notes', [ClientController::class, 'addNote'])->where('key', '[0-9]+');
+    });
+    Route::middleware('can:clients.block')->group(function () {
+        Route::post('clients/{key}/block', [ClientController::class, 'block'])->where('key', '[0-9]+');
+        Route::post('clients/{key}/unblock', [ClientController::class, 'unblock'])->where('key', '[0-9]+');
+    });
+    Route::middleware('can:clients.groups')->group(function () {
+        Route::post('client-groups', [ClientController::class, 'storeGroup']);
+        Route::put('client-groups/{group}', [ClientController::class, 'updateGroup']);
+        Route::delete('client-groups/{group}', [ClientController::class, 'destroyGroup']);
+        Route::post('client-groups/{group}/members', [ClientController::class, 'addMembers']);
+        Route::delete('client-groups/{group}/members/{key}', [ClientController::class, 'removeMember']);
+    });
     Route::get('dashboard', [DashboardController::class, 'show'])->middleware('can:dashboard.view');
     Route::get('centre', [CentreController::class, 'show'])->middleware('can:dashboard.view');
 

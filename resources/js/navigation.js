@@ -12,6 +12,7 @@ import {
     Boxes,
     LayoutGrid,
     UsersRound,
+    Contact,
 } from 'lucide-react';
 
 export const modules = [
@@ -59,6 +60,20 @@ export const modules = [
         tabs: [
             { to: '/confirmation', label: 'File de confirmation' },
             { to: '/a-attribuer', label: 'À attribuer', ability: 'drivers.manage' },
+        ],
+    },
+    {
+        id: 'clients',
+        label: 'Clients',
+        to: '/clients',
+        icon: Contact,
+        roles: ['admin'],
+        ability: 'clients.view',
+        tabs: [
+            { to: '/clients', label: 'Tous les clients', end: true },
+            { to: '/clients/bloques', label: 'Bloqués' },
+            { to: '/clients/segments', label: 'Segments' },
+            { to: '/clients/groupes', label: 'Groupes' },
         ],
     },
     {
@@ -180,6 +195,10 @@ export function getActiveModule(pathname, user) {
             }
         }
     }
+
+    // Detail pages (e.g. /clients/2126…) belong to the module whose root prefixes them.
+    const owner = list.find((m) => m.to !== '/' && normalized.startsWith(`${m.to}/`));
+    if (owner) return owner;
 
     // Fallback: Confirmation module owns /a-attribuer even if pathname matching is ambiguous
     if (normalized.startsWith('/a-attribuer')) {

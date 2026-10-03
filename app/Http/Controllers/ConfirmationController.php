@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Resources\OrderResource;
+use App\Models\ClientBlock;
 use App\Models\ConfirmationStatus;
 use App\Models\Order;
 use App\Models\OrderCall;
@@ -265,6 +266,7 @@ class ConfirmationController extends Controller
             'order_number' => $order->order_number,
             'customer_name' => $order->customer_name,
             'phone' => $order->phone,
+            'client_blocked' => ($b = ClientBlock::activeFor($order->phone_key)) ? ['reason' => $b->reason] : null,
             'city' => $order->shippingCity(),
             'address' => $order->shippingAddressLine(),
             'total_price' => $order->total_price,

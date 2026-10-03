@@ -1,4 +1,4 @@
-import { Package } from 'lucide-react';
+import { Ban, Package } from 'lucide-react';
 import { ColorBadge, StatusBadge } from '../ui/Badge';
 import { formatDH, formatDateTime } from '../../lib/format';
 
@@ -60,7 +60,16 @@ export function renderCell(key, order, meta) {
                 </span>
             );
         case 'customer':
-            return <span className="block max-w-[105px] truncate font-medium text-slate-700">{order.customer_name}</span>;
+            return (
+                <span className="flex max-w-[115px] items-center gap-1">
+                    {order.client_blocked ? (
+                        <span title={`Client bloqué : ${order.client_blocked.reason}`} aria-label="Client bloqué" className="shrink-0 text-rose-600">
+                            <Ban className="h-3.5 w-3.5" />
+                        </span>
+                    ) : null}
+                    <span className={`truncate font-medium ${order.client_blocked ? 'text-rose-700' : 'text-slate-700'}`}>{order.customer_name}</span>
+                </span>
+            );
         case 'phone':
             return order.customer_phone || '—';
         case 'city': {

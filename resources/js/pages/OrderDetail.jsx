@@ -7,6 +7,7 @@ import { formatDH, formatDateTime, formatDate } from '../lib/format';
 import { Alert, Button, Card, EmptyState, Spinner } from '../components/ui';
 import LocalAssignDrawer from '../components/orders/LocalAssignDrawer';
 import OrderItemsEditor from '../components/orders/OrderItemsEditor';
+import { BlockedClientAlert } from '../components/clients/ClientBadges';
 import { useAuth } from '../contexts/AuthContext';
 import { ColorBadge, StatusBadge } from '../components/ui/Badge';
 import StatusChangeForm from '../components/orders/StatusChangeForm';
@@ -73,12 +74,21 @@ export default function OrderDetail() {
                 {confirmation ? <ColorBadge color={confirmation.color} label={confirmation.label} /> : null}
             </div>
             <Alert>{error}</Alert>
+            <BlockedClientAlert block={order.client_blocked} />
 
             <div className="grid gap-4 lg:grid-cols-3">
                 <div className="space-y-4 lg:col-span-2">
                     <Card title="Informations de la commande">
                         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                            <Info label="Client">{order.customer_name}</Info>
+                            <Info label="Client">
+                                {order.client_key && can('clients.view') ? (
+                                    <Link to={`/clients/${order.client_key}`} className="text-blue-700 hover:underline">
+                                        {order.customer_name}
+                                    </Link>
+                                ) : (
+                                    order.customer_name
+                                )}
+                            </Info>
                             <Info label="Téléphone">{order.customer_phone}</Info>
                             <Info label="Ville">{order.city}</Info>
                             <Info label="Adresse">{order.address}</Info>
