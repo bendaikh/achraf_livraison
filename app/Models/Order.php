@@ -72,6 +72,9 @@ class Order extends Model
         'cancellation_reason',
         'shopify_created_at',
         'shopify_updated_at',
+        'items_edited_at',
+        'items_edited_by',
+        'shopify_line_items',
     ];
 
     protected $attributes = [
@@ -85,6 +88,8 @@ class Order extends Model
         return [
             'shipping_address' => 'array',
             'line_items' => 'array',
+            'shopify_line_items' => 'array',
+            'items_edited_at' => 'datetime',
             'confirmation_history' => 'array',
             'total_price' => 'decimal:2',
             'shipping_price' => 'decimal:2',

@@ -15,6 +15,9 @@ class OrderResource extends JsonResource
     public function toArray(Request $request): array
     {
         $status = $this->deliveryStatusDefinition();
+        $catalog = app(\App\Services\Catalog\CatalogLookup::class);
+        $lines = $catalog->enrichOrder($this->resource);
+        $firstImage = collect($lines)->pluck('image_url')->filter()->first();
 
         return [
             'id' => $this->id,
@@ -23,8 +26,12 @@ class OrderResource extends JsonResource
             'shopify_order_id' => $this->shopify_order_id,
             'shop_name' => $this->shop?->shop_name,
             'product_name' => $this->productName(),
-            'product_image' => $this->productImage(),
-            'line_items' => $this->line_items ?? [],
+            // Catalog photo (variant → product → line image), null = UI placeholder.
+            'product_image' => $firstImage ?: $this->productImage(),
+            'line_items' => $lines,
+            'items_subtotal' => \App\Services\Catalog\OrderLines::subtotal($lines),
+            'items_edited_at' => $this->items_edited_at?->toIso8601String(),
+            'has_out_of_stock' => collect($lines)->contains(fn ($l) => $l['out_of_stock'] === true),
             'quantity' => $this->itemsQuantity(),
             'customer_name' => $this->customer_name,
             'customer_phone' => $this->phone,

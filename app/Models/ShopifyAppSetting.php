@@ -25,7 +25,7 @@ class ShopifyAppSetting extends Model
         return static::query()->firstOrCreate(
             ['id' => 1],
             [
-                'scopes' => config('services.shopify.scopes', 'read_orders,read_customers'),
+                'scopes' => config('services.shopify.scopes', 'read_orders,read_customers,read_products,read_inventory'),
                 'api_version' => config('services.shopify.api_version', '2025-01'),
             ]
         );

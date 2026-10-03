@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\ShopifyShop;
+use App\Services\Shopify\CatalogSyncService;
 use App\Services\Shopify\OrderSyncService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -18,7 +19,7 @@ class ProcessShopifyWebhookJob implements ShouldQueue
         public array $payload,
     ) {}
 
-    public function handle(OrderSyncService $sync): void
+    public function handle(OrderSyncService $sync, CatalogSyncService $catalog): void
     {
         $shop = ShopifyShop::query()
             ->where('shop_domain', $this->shopDomain)
@@ -36,6 +37,10 @@ class ProcessShopifyWebhookJob implements ShouldQueue
         match ($this->topic) {
             'orders/create', 'orders/updated' => $sync->upsertFromShopifyPayload($shop, $this->payload),
             'orders/cancelled' => $sync->markCancelled($shop, $this->payload),
+            // Product catalog (T4)
+            'products/create', 'products/update' => $catalog->handleProductWebhook($shop, $this->payload),
+            'products/delete' => $catalog->handleProductDeleted($shop, $this->payload),
+            'inventory_levels/update' => $catalog->handleInventoryLevel($shop, $this->payload),
             'app/uninstalled' => $this->handleUninstall($shop),
             'customers/data_request', 'customers/redact' => null,
             'shop/redact' => $this->handleShopRedact($shop),

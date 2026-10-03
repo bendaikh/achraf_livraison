@@ -60,6 +60,20 @@ export default function Settings() {
                                 onChange={(e) => setForm({ ...form, confirmation_alert_hours: Number(e.target.value) })}
                             />
                         </Field>
+                        <label className="flex items-start gap-2 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
+                            <input
+                                type="checkbox"
+                                className="mt-0.5 h-4 w-4 accent-blue-600"
+                                checked={form.allow_out_of_stock_items !== false}
+                                onChange={(e) => setForm({ ...form, allow_out_of_stock_items: e.target.checked })}
+                            />
+                            <span>
+                                <span className="font-semibold">Autoriser les précommandes (produits en rupture)</span>
+                                <span className="block text-xs text-slate-500">
+                                    Ajout / remplacement de produit dans une commande : avertissement seulement si coché, blocage sinon (sauf si Shopify autorise la vente hors stock).
+                                </span>
+                            </span>
+                        </label>
                     </div>
                 </Card>
                 <Card title="Tarifs livreur par défaut" subtitle="Préremplis automatiquement à la création d’un livreur (modifiables par livreur).">

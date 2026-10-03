@@ -70,7 +70,10 @@ class OrderController extends Controller
 
         $perPage = min(max($request->integer('per_page', 25), 5), 100);
 
-        return OrderResource::collection($q->orderByDesc('created_at')->orderByDesc('id')->paginate($perPage));
+        $page = $q->orderByDesc('created_at')->orderByDesc('id')->paginate($perPage);
+        app(\App\Services\Catalog\CatalogLookup::class)->prime($page->getCollection());
+
+        return OrderResource::collection($page);
     }
 
     public function show(Order $order)

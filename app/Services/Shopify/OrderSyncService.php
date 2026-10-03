@@ -30,6 +30,9 @@ class OrderSyncService
             'quantity' => $item['quantity'] ?? 0,
             'sku' => $item['sku'] ?? null,
             'price' => $item['price'] ?? null,
+            // Catalog link (T4): product photo / stock from the synced Shopify catalog.
+            'product_id' => $item['product_id'] ?? null,
+            'variant_id' => $item['variant_id'] ?? null,
         ])->values()->all();
 
         $status = $this->mapLocalStatus($order);
@@ -58,6 +61,14 @@ class OrderSyncService
             'shopify_created_at' => $this->parseDate($order['created_at'] ?? null),
             'shopify_updated_at' => $this->parseDate($order['updated_at'] ?? null),
         ];
+
+        // Lines as sent by Shopify are always kept for reference. When the lines were edited inside
+        // Lav'Fast Flow (internal change, not pushed to Shopify), a Shopify update must not
+        // overwrite them nor the recalculated total.
+        $attributes['shopify_line_items'] = $lineItems;
+        if ($existing?->items_edited_at) {
+            unset($attributes['line_items'], $attributes['total_price']);
+        }
 
         if (! $existing) {
             $attributes['confirmation_status'] = ConfirmationStatus::defaultCode();

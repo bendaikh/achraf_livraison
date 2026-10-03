@@ -14,7 +14,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // One catalog cache per request (order lines ↔ synced Shopify products).
+        $this->app->scoped(\App\Services\Catalog\CatalogLookup::class);
     }
 
     /**

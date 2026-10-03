@@ -80,7 +80,7 @@ class ShopifyIntegrationController extends Controller
 
         $settings->forceFill([
             'client_id' => trim($data['client_id']),
-            'scopes' => trim($data['scopes'] ?? '') ?: 'read_orders,read_customers',
+            'scopes' => trim($data['scopes'] ?? '') ?: 'read_orders,read_customers,read_products,read_inventory',
             'api_version' => trim($data['api_version'] ?? '') ?: '2025-01',
         ]);
 

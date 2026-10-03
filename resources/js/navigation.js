@@ -9,6 +9,7 @@ import {
     Users,
     Settings,
     Package,
+    Boxes,
 } from 'lucide-react';
 
 export const modules = [
@@ -27,6 +28,14 @@ export const modules = [
         icon: ShoppingBag,
         roles: ['admin'],
         tabs: [{ to: '/commandes', label: 'Liste des commandes' }],
+    },
+    {
+        id: 'produits',
+        label: 'Produits',
+        to: '/produits',
+        icon: Boxes,
+        roles: ['admin'],
+        tabs: [{ to: '/produits', label: 'Catalogue Shopify' }],
     },
     {
         id: 'confirmation',

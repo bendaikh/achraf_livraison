@@ -28,6 +28,33 @@ class ShopifyClient
         return $this->request('delete', $path);
     }
 
+    /**
+     * Admin GraphQL API (used for the product catalog: the REST product endpoints are legacy).
+     *
+     * @return array<string, mixed> the "data" member
+     */
+    public function graphql(string $query, array $variables = []): array
+    {
+        $version = $this->apiVersion ?: config('services.shopify.api_version', '2025-01');
+        $url = "https://{$this->shopDomain}/admin/api/{$version}/graphql.json";
+
+        $response = Http::withHeaders([
+            'X-Shopify-Access-Token' => $this->accessToken,
+            'Accept' => 'application/json',
+        ])->timeout(60)->post($url, ['query' => $query, 'variables' => (object) $variables]);
+
+        if ($response->failed()) {
+            throw new RuntimeException("Shopify API error ({$response->status()}): ".mb_substr($response->body(), 0, 500));
+        }
+        $json = $response->json() ?? [];
+        if (! empty($json['errors'])) {
+            $first = is_array($json['errors']) ? ($json['errors'][0]['message'] ?? json_encode($json['errors'])) : (string) $json['errors'];
+            throw new RuntimeException('Shopify GraphQL : '.$first);
+        }
+
+        return $json['data'] ?? [];
+    }
+
     private function request(string $method, string $path, array $query = [], array $body = []): array
     {
         $version = $this->apiVersion ?: config('services.shopify.api_version', '2025-01');

@@ -10,6 +10,9 @@ use RuntimeException;
 
 class ShopifyOAuth
 {
+    /** Orders import + product catalog (T4: read_products, read_inventory). */
+    public const DEFAULT_SCOPES = 'read_orders,read_customers,read_products,read_inventory';
+
     public function settings(): ShopifyAppSetting
     {
         return ShopifyAppSetting::current();
@@ -35,7 +38,7 @@ class ShopifyOAuth
 
         return filled($fromDb)
             ? $fromDb
-            : (string) config('services.shopify.scopes', 'read_orders,read_customers');
+            : (string) config('services.shopify.scopes', self::DEFAULT_SCOPES);
     }
 
     public function apiVersion(): string
@@ -143,6 +146,10 @@ class ShopifyOAuth
             'orders/create',
             'orders/updated',
             'orders/cancelled',
+            'products/create',
+            'products/update',
+            'products/delete',
+            'inventory_levels/update',
             'app/uninstalled',
             'customers/data_request',
             'customers/redact',

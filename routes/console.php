@@ -17,3 +17,12 @@ Schedule::call(fn () => Artisan::call('speedaf:sync'))
     ->name('speedaf-sync')
     ->everyThirtyMinutes()
     ->withoutOverlapping(25);
+
+/*
+| Shopify product catalog (T4): incremental every hour, full pass once a day (inside syncAll).
+| Webhooks products/* + inventory_levels/update keep it live in between.
+*/
+Schedule::call(fn () => app(\App\Services\Shopify\CatalogSyncService::class)->syncAll())
+    ->name('shopify-catalog-sync')
+    ->hourly()
+    ->withoutOverlapping(55);

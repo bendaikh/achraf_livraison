@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Bike, Package } from 'lucide-react';
+import { ArrowLeft, Bike } from 'lucide-react';
 import api, { errorMessage } from '../lib/api';
 import { useMeta } from '../context/MetaContext';
 import { formatDH, formatDateTime, formatDate } from '../lib/format';
 import { Alert, Button, Card, EmptyState, Spinner } from '../components/ui';
 import LocalAssignDrawer from '../components/orders/LocalAssignDrawer';
+import OrderItemsEditor from '../components/orders/OrderItemsEditor';
 import { useAuth } from '../contexts/AuthContext';
 import { ColorBadge, StatusBadge } from '../components/ui/Badge';
 import StatusChangeForm from '../components/orders/StatusChangeForm';
@@ -76,19 +77,6 @@ export default function OrderDetail() {
             <div className="grid gap-4 lg:grid-cols-3">
                 <div className="space-y-4 lg:col-span-2">
                     <Card title="Informations de la commande">
-                        <div className="mb-4 flex items-center gap-3">
-                            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 text-slate-400">
-                                {order.product_image ? (
-                                    <img src={order.product_image} alt="" className="h-full w-full object-cover" />
-                                ) : (
-                                    <Package className="h-6 w-6" />
-                                )}
-                            </div>
-                            <div>
-                                <div className="font-bold text-slate-900">{order.product_name || 'Produit'}</div>
-                                <div className="text-xs text-slate-500">Quantité : {order.quantity}</div>
-                            </div>
-                        </div>
                         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                             <Info label="Client">{order.customer_name}</Info>
                             <Info label="Téléphone">{order.customer_phone}</Info>
@@ -105,6 +93,10 @@ export default function OrderDetail() {
                             {order.delivered_at ? <Info label="Livrée le">{formatDateTime(order.delivered_at)}</Info> : null}
                         </div>
                         {order.note ? <p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">{order.note}</p> : null}
+                    </Card>
+
+                    <Card title="Produits" subtitle={`${order.quantity} article(s)`}>
+                        <OrderItemsEditor order={order} onChanged={setOrder} />
                     </Card>
 
                     <Card title="Missions liées" bodyClassName="p-0">

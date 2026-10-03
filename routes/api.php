@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\LogisticsPartnerController;
 use App\Http\Controllers\Api\MetaController;
 use App\Http\Controllers\Api\MissionController;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\OrderItemController;
+use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\PreferenceController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\SpeedafIntegrationController;
@@ -53,6 +55,20 @@ Route::middleware(['web', 'auth', 'admin.access'])->group(function () {
     Route::put('orders/{order}', [OrderController::class, 'update']);
     Route::post('orders/{order}/status', [OrderController::class, 'changeStatus']);
     Route::post('orders/{order}/confirmation', [OrderController::class, 'changeConfirmation']);
+
+    // Lignes de commande (modification interne, jamais poussée vers Shopify)
+    Route::middleware('can:orders.edit_items')->group(function () {
+        Route::post('orders/{order}/items', [OrderItemController::class, 'store']);
+        Route::put('orders/{order}/items/{key}', [OrderItemController::class, 'update']);
+        Route::delete('orders/{order}/items/{key}', [OrderItemController::class, 'destroy']);
+        Route::post('orders/{order}/items/{key}/replace', [OrderItemController::class, 'replace']);
+    });
+
+    // Produits (catalogue Shopify synchronisé)
+    Route::get('products', [ProductController::class, 'index'])->middleware('can:products.view');
+    Route::get('products/status', [ProductController::class, 'status'])->middleware('can:products.view');
+    Route::post('products/sync', [ProductController::class, 'sync'])->middleware('can:products.sync');
+    Route::post('products/webhooks', [ProductController::class, 'registerWebhooks'])->middleware('can:products.sync');
 
     Route::get('drivers', [DriverController::class, 'index']);
     Route::get('drivers/active', [DriverController::class, 'active']);

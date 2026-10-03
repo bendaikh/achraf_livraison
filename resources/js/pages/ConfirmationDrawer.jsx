@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import api, { errorMessage } from '../lib/api';
+import OrderItemsEditor from '../components/orders/OrderItemsEditor';
 import {
     CheckCircle2,
     Clock3,
@@ -11,11 +13,25 @@ import {
 import {
     formatDate,
     formatHistoryLine,
-    formatMoney,
     orderDisplayName,
     statusBadgeStyle,
     telUrl,
 } from './confirmationHelpers';
+
+/** Product lines of the order (catalog photos, stock, internal edition — T4). */
+function ConfirmationItems({ orderId }) {
+    const [full, setFull] = useState(null);
+    const [err, setErr] = useState(null);
+    useEffect(() => {
+        setFull(null);
+        api.get(`/orders/${orderId}`)
+            .then(({ data }) => setFull(data.data))
+            .catch((e) => setErr(errorMessage(e)));
+    }, [orderId]);
+    if (err) return <p className="text-sm text-rose-600">{err}</p>;
+    if (!full) return <p className="text-sm text-slate-400">Chargement des produits…</p>;
+    return <OrderItemsEditor order={full} onChanged={setFull} compact />;
+}
 
 function ModalShell({ title, children, onClose }) {
     return (
@@ -229,52 +245,10 @@ export default function ConfirmationDrawer({
 
                             <section>
                                 <h3 className="text-xs font-bold uppercase tracking-wide text-slate-400">Commande</h3>
-                                <div className="mt-2 space-y-2">
-                                    {(order.line_items || []).length === 0 ? (
-                                        <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-medium text-slate-500">
-                                            Aucun produit
-                                        </p>
-                                    ) : (
-                                        (order.line_items || []).map((item, index) => (
-                                            <div
-                                                key={item.id || `${item.title}-${index}`}
-                                                className="rounded-2xl border border-slate-100 bg-white px-4 py-3"
-                                            >
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div className="min-w-0">
-                                                        <p className="text-sm font-bold text-slate-900">
-                                                            {item.title || 'Produit'}
-                                                        </p>
-                                                        {item.variant_title ? (
-                                                            <p className="mt-0.5 text-xs font-medium text-slate-500">
-                                                                {item.variant_title}
-                                                            </p>
-                                                        ) : null}
-                                                        <p className="mt-1 text-xs font-semibold text-slate-500">
-                                                            Qté {item.quantity ?? 0}
-                                                        </p>
-                                                    </div>
-                                                    <p className="shrink-0 text-sm font-bold text-slate-800">
-                                                        {formatMoney(item.price, order.currency)}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
+                                <div className="mt-2">
+                                    <ConfirmationItems orderId={order.id} />
                                 </div>
-                                <div className="mt-3 space-y-1.5 rounded-2xl bg-slate-50 px-4 py-3 text-sm">
-                                    <div className="flex justify-between gap-3 font-medium text-slate-600">
-                                        <span>Livraison</span>
-                                        <span>{formatMoney(order.shipping_price ?? 0, order.currency)}</span>
-                                    </div>
-                                    <div className="flex justify-between gap-3 text-base font-bold text-slate-900">
-                                        <span>Total</span>
-                                        <span>{formatMoney(order.total_price, order.currency)}</span>
-                                    </div>
-                                    <p className="pt-1 text-xs font-medium text-slate-400">
-                                        Reçue le {formatDate(order.shopify_created_at)}
-                                    </p>
-                                </div>
+                                <p className="pt-2 text-xs font-medium text-slate-400">Reçue le {formatDate(order.shopify_created_at)}</p>
                             </section>
 
                             <section>
