@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\CentreController;
 use App\Http\Controllers\Api\ClosingController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DeliveryStatusController;
@@ -24,6 +25,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['web', 'auth', 'admin.access'])->group(function () {
     Route::get('meta', [MetaController::class, 'show']);
     Route::get('dashboard', [DashboardController::class, 'show']);
+    Route::get('centre', [CentreController::class, 'show']);
 
     Route::get('settings', [SettingsController::class, 'show']);
     Route::put('settings', [SettingsController::class, 'update']);

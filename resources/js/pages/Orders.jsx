@@ -13,7 +13,7 @@ import LocalAssignDrawer from '../components/orders/LocalAssignDrawer';
 import { useAuth } from '../contexts/AuthContext';
 import { DEFAULT_COLUMN_PREFS, ORDER_COLUMNS, renderCell } from '../components/orders/orderColumns';
 
-const FILTER_KEYS = ['q', 'delivery_status_id', 'status_category', 'confirmation_status', 'driver_id', 'speedaf', 'date_from', 'date_to'];
+const FILTER_KEYS = ['q', 'delivery_status_id', 'status_category', 'confirmation_status', 'driver_id', 'speedaf', 'date_from', 'date_to', 'out_of_stock', 'late'];
 
 export default function Orders() {
     const meta = useMeta();
@@ -122,6 +122,7 @@ export default function Orders() {
                     </Select>
                     <Select value={filters.driver_id} onChange={(e) => setFilter('driver_id', e.target.value)}>
                         <option value="">Tous les livreurs</option>
+                        <option value="any">Avec un livreur</option>
                         <option value="none">Sans livreur</option>
                         {meta.drivers.map((d) => (
                             <option key={d.id} value={d.id}>
@@ -143,6 +144,22 @@ export default function Orders() {
                             <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 font-semibold text-blue-700">
                                 Catégorie : {categoryLabel}
                                 <button type="button" onClick={() => setFilter('status_category', '')} aria-label="Retirer">
+                                    <X className="h-3 w-3" />
+                                </button>
+                            </span>
+                        ) : null}
+                        {filters.out_of_stock ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-1 font-semibold text-rose-700">
+                                Rupture de stock
+                                <button type="button" onClick={() => setFilter('out_of_stock', '')} aria-label="Retirer">
+                                    <X className="h-3 w-3" />
+                                </button>
+                            </span>
+                        ) : null}
+                        {filters.late ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-1 font-semibold text-amber-700">
+                                En retard
+                                <button type="button" onClick={() => setFilter('late', '')} aria-label="Retirer">
                                     <X className="h-3 w-3" />
                                 </button>
                             </span>

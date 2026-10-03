@@ -10,6 +10,7 @@ import {
     Settings,
     Package,
     Boxes,
+    LayoutGrid,
 } from 'lucide-react';
 
 export const modules = [
@@ -20,6 +21,14 @@ export const modules = [
         icon: LayoutDashboard,
         roles: ['admin'],
         tabs: [{ to: '/', label: 'Vue générale', end: true }],
+    },
+    {
+        id: 'centre',
+        label: 'Centre',
+        to: '/centre',
+        icon: LayoutGrid,
+        roles: ['admin'],
+        tabs: [{ to: '/centre', label: 'Centre de travail' }],
     },
     {
         id: 'commandes',

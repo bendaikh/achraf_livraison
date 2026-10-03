@@ -51,9 +51,18 @@ class OrderController extends Controller
             $q->where('confirmation_status', $request->query('confirmation_status'));
         }
         if ($request->filled('driver_id')) {
-            $request->query('driver_id') === 'none'
-                ? $q->whereNull('driver_id')
-                : $q->where('driver_id', $request->integer('driver_id'));
+            match ((string) $request->query('driver_id')) {
+                'none' => $q->whereNull('driver_id'),
+                'any' => $q->whereNotNull('driver_id'),
+                default => $q->where('driver_id', $request->integer('driver_id')),
+            };
+        }
+        // Centre shortcuts
+        if ($request->boolean('out_of_stock')) {
+            $q->whereIn('id', app(\App\Services\CentreService::class)->outOfStockOrderIds() ?: [0]);
+        }
+        if ($request->boolean('late')) {
+            $q->whereIn('id', app(\App\Services\CentreService::class)->lateQuery()->select('id'));
         }
         if ($request->filled('speedaf')) {
             $active = fn ($w) => $w->where('state', '!=', \App\Models\SpeedafShipment::STATE_CANCELLED);

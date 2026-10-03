@@ -9,6 +9,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Orders = lazy(() => import('./pages/Orders'));
 const OrderDetail = lazy(() => import('./pages/OrderDetail'));
 const Products = lazy(() => import('./pages/Products'));
+const Centre = lazy(() => import('./pages/Centre'));
 const Missions = lazy(() => import('./pages/Missions'));
 const Closing = lazy(() => import('./pages/Closing'));
 const Settings = lazy(() => import('./pages/Settings'));
@@ -84,6 +85,14 @@ export default function AppRouter() {
                         element={
                             <AdminRoute>
                                 <OrderDetail />
+                            </AdminRoute>
+                        }
+                    />
+                    <Route
+                        path="centre"
+                        element={
+                            <AdminRoute>
+                                <Centre />
                             </AdminRoute>
                         }
                     />
