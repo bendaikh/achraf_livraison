@@ -45,6 +45,8 @@ class OrderResource extends JsonResource
             'financial_status' => $this->financial_status,
             'confirmation_status' => $this->confirmation_status,
             'is_confirmed' => $this->isConfirmed(),
+            'confirmation_channel' => $this->confirmation_channel,
+            'discount_total' => (float) $this->discount_total,
             'confirmation_status_label' => ConfirmationStatus::labelFor($this->confirmation_status),
             'confirmation_status_color' => ConfirmationStatus::colorFor($this->confirmation_status),
             'delivery_status_id' => $status?->id,

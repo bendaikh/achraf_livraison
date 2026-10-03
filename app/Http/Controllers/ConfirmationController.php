@@ -31,7 +31,7 @@ class ConfirmationController extends Controller
 
         $query = Order::query()
             ->with(['shop:id,shop_domain,shop_name'])
-            ->latest('shopify_created_at');
+            ->orderByRaw('COALESCE(shopify_created_at, created_at) DESC')->orderByDesc('id');
 
         $this->statuses->applyFilter($query, $filter);
 
@@ -88,9 +88,11 @@ class ConfirmationController extends Controller
         /** @var User $user */
         $user = $request->user();
         $status = ConfirmationStatus::requireByCode(Order::CONFIRMATION_CONFIRMED);
+        $channel = $request->validate(['channel' => ['nullable', 'in:'.implode(',', array_keys(\App\Models\OrderCall::CHANNELS))]])['channel'] ?? null;
 
         $order->forceFill([
             'confirmation_status' => $status->code,
+            'confirmation_channel' => $channel ?? 'phone',
             'confirmed_by' => $user->id,
             'confirmed_at' => now(),
             'confirmation_acted_by' => $user->id,
@@ -273,6 +275,7 @@ class ConfirmationController extends Controller
             'can_act' => $order->canPerformConfirmationActions(),
             'postponed_until' => $order->postponed_until?->toIso8601String(),
             'shopify_created_at' => $order->shopify_created_at?->toIso8601String(),
+            'received_at' => ($order->shopify_created_at ?? $order->created_at)?->toIso8601String(),
         ];
     }
 
@@ -294,6 +297,12 @@ class ConfirmationController extends Controller
             'financial_status' => $order->financial_status,
             'fulfillment_status' => $order->fulfillment_status,
             'status' => $order->status,
+            // T5 — Centre de confirmation
+            'confirmation_channel' => $order->confirmation_channel,
+            'discount_total' => (float) $order->discount_total,
+            'calls' => $order->calls()->with('user:id,name')->limit(50)->get()->map->toPayload()->values(),
+            'discounts' => $order->discounts()->with('user:id,name')->get()->map->toPayload()->values(),
+            'full' => (new \App\Http\Resources\OrderResource($order->loadMissing(['deliveryStatus', 'driver', 'assignedUser', 'speedafShipments'])))->resolve(),
         ]);
     }
 }

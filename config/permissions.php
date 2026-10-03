@@ -12,6 +12,7 @@ return [
         'orders.ship' => ['label' => 'Envoyer des commandes aux sociétés de livraison', 'roles' => ['admin']],
         'orders.edit_items' => ['label' => 'Ajouter / remplacer / supprimer des produits d’une commande', 'roles' => ['admin', 'user']],
         'orders.edit_prices' => ['label' => 'Modifier le prix d’un produit dans une commande', 'roles' => ['admin']],
+        'orders.discount' => ['label' => 'Ajouter / retirer une remise sur une commande', 'roles' => ['admin']],
         'products.view' => ['label' => 'Voir le catalogue produits', 'roles' => ['admin', 'user']],
         'products.sync' => ['label' => 'Synchroniser le catalogue Shopify', 'roles' => ['admin']],
     ],

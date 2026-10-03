@@ -1,24 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { PackageSearch, RefreshCw, Search } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { PackageSearch, Play, RefreshCw, Search } from 'lucide-react';
 import ConfirmationOrderCard from './ConfirmationOrderCard';
-import ConfirmationDrawer from './ConfirmationDrawer';
+import ConfirmationStats from '../components/confirmation/ConfirmationStats';
 
 export default function Confirmation() {
     const [orders, setOrders] = useState([]);
     const [counts, setCounts] = useState({});
     const [statuses, setStatuses] = useState([]);
     const [meta, setMeta] = useState({ current_page: 1, last_page: 1, per_page: 25, total: 0 });
-    const [search, setSearch] = useState('');
-    const [debouncedSearch, setDebouncedSearch] = useState('');
-    const [filter, setFilter] = useState('');
+    const navigate = useNavigate();
+    const [params] = useSearchParams();
+    const [search, setSearch] = useState(params.get('search') || '');
+    const [debouncedSearch, setDebouncedSearch] = useState(params.get('search') || '');
+    const [filter, setFilter] = useState(params.get('filter') || '');
     const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [selectedId, setSelectedId] = useState(null);
-    const [detail, setDetail] = useState(null);
-    const [detailLoading, setDetailLoading] = useState(false);
-    const [detailError, setDetailError] = useState('');
-    const [busy, setBusy] = useState(false);
     const [toast, setToast] = useState('');
 
     useEffect(() => {
@@ -63,51 +61,18 @@ export default function Confirmation() {
         load();
     }, [load]);
 
-    const openOrder = async (order) => {
-        setSelectedId(order.id);
-        setDetail(order);
-        setDetailLoading(true);
-        setDetailError('');
-        try {
-            const { data } = await window.axios.get(`/api/confirmation/orders/${order.id}`);
-            setDetail(data.order);
-        } catch (err) {
-            setDetailError(err.response?.data?.message || 'Impossible de charger la fiche.');
-        } finally {
-            setDetailLoading(false);
-        }
+    /** T5 — each order opens in the full-page Centre de confirmation (same queue filter/search). */
+    const queueQs = () => {
+        const q = new URLSearchParams();
+        if (filter) q.set('filter', filter);
+        if (debouncedSearch) q.set('search', debouncedSearch);
+        const str = q.toString();
+        return str ? `?${str}` : '';
     };
-
-    const closeDetail = () => {
-        setSelectedId(null);
-        setDetail(null);
-        setDetailError('');
-    };
-
-    const refreshAfterAction = async (nextOrder, message) => {
-        setDetail(nextOrder);
-        setToast(message || '');
-        await load();
-        if (message) {
-            window.setTimeout(() => setToast(''), 2500);
-        }
-    };
-
-    const runAction = async (runner) => {
-        if (!selectedId) return;
-        setBusy(true);
-        setDetailError('');
-        try {
-            await runner();
-        } catch (err) {
-            const msg =
-                err.response?.data?.message ||
-                Object.values(err.response?.data?.errors || {})?.[0]?.[0] ||
-                'Action impossible.';
-            setDetailError(msg);
-        } finally {
-            setBusy(false);
-        }
+    const openOrder = (order) => navigate(`/confirmation/${order.id}${queueQs()}`);
+    const startQueue = () => {
+        window.localStorage.setItem('lavfast:confirmation-auto-next', '1');
+        if (orders[0]) openOrder(orders[0]);
     };
 
     const filterButtons = useMemo(
@@ -129,16 +94,29 @@ export default function Confirmation() {
                         File de travail pour confirmer les commandes Shopify avec les clients.
                     </p>
                 </div>
+                <div className="flex gap-2 self-start">
+                <button
+                    type="button"
+                    onClick={startQueue}
+                    disabled={!orders.length}
+                    className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm shadow-blue-500/20 transition hover:bg-blue-700 disabled:opacity-50"
+                >
+                    <Play className="h-4 w-4" />
+                    Démarrer la file
+                </button>
                 <button
                     type="button"
                     onClick={load}
                     disabled={loading}
-                    className="inline-flex h-10 items-center gap-2 self-start rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
                 >
                     <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                     Actualiser
                 </button>
+                </div>
             </div>
+
+            <ConfirmationStats />
 
             {toast ? (
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
@@ -238,58 +216,6 @@ export default function Confirmation() {
                 ) : null}
             </section>
 
-            {selectedId ? (
-                <ConfirmationDrawer
-                    order={detail}
-                    loading={detailLoading}
-                    busy={busy}
-                    error={detailError}
-                    onClose={closeDetail}
-                    onConfirm={() =>
-                        runAction(async () => {
-                            const { data } = await window.axios.post(
-                                `/api/confirmation/orders/${selectedId}/confirm`,
-                            );
-                            await refreshAfterAction(data.order, data.message);
-                        })
-                    }
-                    onNoAnswer={() =>
-                        runAction(async () => {
-                            const { data } = await window.axios.post(
-                                `/api/confirmation/orders/${selectedId}/no-answer`,
-                            );
-                            await refreshAfterAction(data.order, data.message);
-                        })
-                    }
-                    onPostpone={(payload) =>
-                        runAction(async () => {
-                            const { data } = await window.axios.post(
-                                `/api/confirmation/orders/${selectedId}/postpone`,
-                                payload,
-                            );
-                            await refreshAfterAction(data.order, data.message);
-                        })
-                    }
-                    onCancel={(payload) =>
-                        runAction(async () => {
-                            const { data } = await window.axios.post(
-                                `/api/confirmation/orders/${selectedId}/cancel`,
-                                payload,
-                            );
-                            await refreshAfterAction(data.order, data.message);
-                        })
-                    }
-                    onSaveNote={(note) =>
-                        runAction(async () => {
-                            const { data } = await window.axios.put(
-                                `/api/confirmation/orders/${selectedId}/internal-note`,
-                                { internal_note: note },
-                            );
-                            await refreshAfterAction(data.order, data.message);
-                        })
-                    }
-                />
-            ) : null}
         </div>
     );
 }

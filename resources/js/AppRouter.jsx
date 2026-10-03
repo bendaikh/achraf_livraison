@@ -10,6 +10,7 @@ const Orders = lazy(() => import('./pages/Orders'));
 const OrderDetail = lazy(() => import('./pages/OrderDetail'));
 const Products = lazy(() => import('./pages/Products'));
 const Centre = lazy(() => import('./pages/Centre'));
+const ConfirmationCentre = lazy(() => import('./pages/ConfirmationCentre'));
 const Missions = lazy(() => import('./pages/Missions'));
 const Closing = lazy(() => import('./pages/Closing'));
 const Settings = lazy(() => import('./pages/Settings'));
@@ -109,6 +110,14 @@ export default function AppRouter() {
                         element={
                             <AdminRoute>
                                 <Confirmation />
+                            </AdminRoute>
+                        }
+                    />
+                    <Route
+                        path="confirmation/:id"
+                        element={
+                            <AdminRoute>
+                                <ConfirmationCentre />
                             </AdminRoute>
                         }
                     />

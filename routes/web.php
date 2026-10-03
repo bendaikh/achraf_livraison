@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AssignmentController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\ConfirmationCentreController;
 use App\Http\Controllers\ConfirmationController;
 use App\Http\Controllers\ConfirmationStatusController;
 use App\Http\Controllers\DriverMissionController;
@@ -68,7 +69,7 @@ Route::middleware('auth')->group(function () {
         // Livreurs (/api/drivers…) and Commandes (/api/orders…): see routes/api.php.
     });
 
-    Route::prefix('api/confirmation')->group(function () {
+    Route::middleware('admin.access')->prefix('api/confirmation')->group(function () {
         Route::get('/statuses', [ConfirmationStatusController::class, 'index']);
         Route::get('/orders', [ConfirmationController::class, 'index']);
         Route::get('/orders/{order}', [ConfirmationController::class, 'show']);
@@ -77,6 +78,12 @@ Route::middleware('auth')->group(function () {
         Route::post('/orders/{order}/postpone', [ConfirmationController::class, 'postpone']);
         Route::post('/orders/{order}/cancel', [ConfirmationController::class, 'cancel']);
         Route::put('/orders/{order}/internal-note', [ConfirmationController::class, 'updateInternalNote']);
+        // T5 — Centre de confirmation
+        Route::get('/stats', [ConfirmationCentreController::class, 'stats']);
+        Route::get('/orders/{order}/siblings', [ConfirmationCentreController::class, 'siblings']);
+        Route::post('/orders/{order}/calls', [ConfirmationCentreController::class, 'logCall']);
+        Route::post('/orders/{order}/discounts', [ConfirmationCentreController::class, 'addDiscount'])->middleware('can:orders.discount');
+        Route::delete('/orders/{order}/discounts/{discount}', [ConfirmationCentreController::class, 'removeDiscount'])->middleware('can:orders.discount');
     });
 
     /*

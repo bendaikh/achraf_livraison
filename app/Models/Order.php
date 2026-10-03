@@ -46,6 +46,8 @@ class Order extends Model
         'driver_id',
         'carrier',
         'assigned_user_id',
+        'confirmation_channel',
+        'discount_total',
         'assigned_by',
         'assigned_at',
         'delivery_taken_at',
@@ -220,6 +222,16 @@ class Order extends Model
     public function missions(): HasMany
     {
         return $this->hasMany(Mission::class);
+    }
+
+    public function calls(): HasMany
+    {
+        return $this->hasMany(OrderCall::class)->latest('called_at')->latest('id');
+    }
+
+    public function discounts(): HasMany
+    {
+        return $this->hasMany(OrderDiscount::class)->latest('id');
     }
 
     public function speedafShipments(): HasMany
