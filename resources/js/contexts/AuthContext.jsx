@@ -59,6 +59,8 @@ export function AuthProvider({ children }) {
             logout,
             updateProfile,
             refreshUser,
+            // Ability check (config/permissions.php, resolved server-side).
+            can: (ability) => Boolean(user && (user.role === 'superadmin' || (user.permissions || []).includes(ability))),
         }),
         [user, loading, login, logout, updateProfile, refreshUser],
     );

@@ -370,6 +370,29 @@ class Order extends Model
         return $this->isAwaitingAssignment();
     }
 
+    /**
+     * Why this order cannot be (re)assigned to a local driver from Commandes, or null when it can.
+     * Allowed: confirmed orders awaiting assignment, and orders already with a driver (re-assignment).
+     */
+    public function localAssignmentBlocker(?int $driverId = null): ?string
+    {
+        if (! $this->isConfirmed()) {
+            return 'Commande non confirmée.';
+        }
+        if ($driverId && (int) $this->driver_id === $driverId && $this->isActiveWithDriver()) {
+            return 'Déjà affectée à ce livreur.';
+        }
+        if ($this->currentSpeedafShipment()) {
+            return 'Déjà envoyée à Speedaf (annulez le colis avant de l’affecter en local).';
+        }
+        if ($this->isActiveWithDriver() || $this->isAwaitingAssignment()) {
+            return null;
+        }
+        $status = $this->deliveryStatusDefinition();
+
+        return 'Statut « '.($status?->name ?? $this->delivery_status).' » : affectation impossible.';
+    }
+
     public function isActiveWithDriver(): bool
     {
         return $this->driver_id

@@ -162,13 +162,21 @@ class OrderWorkflow
 
     /* ------------------------------------------------------------ assignment */
 
+    /**
+     * Assigns (or re-assigns / removes) the local driver of an order. The order itself is moved,
+     * never copied: it shows up immediately in the driver's space (Mes missions). Every change is
+     * historised (order_status_histories kind "affectation": "Yassine → Achraf", user, date/time)
+     * and the open livraison mission snapshots the new driver's tariff.
+     */
     public function assignDriver(Order $order, ?int $driverId, ?User $user = null): Order
     {
         $user ??= CurrentUser::get();
 
         return DB::transaction(function () use ($order, $driverId, $user) {
             $driver = $driverId ? Driver::findOrFail($driverId) : null;
+            $previous = $order->driver_id ? Driver::find($order->driver_id) : null;
             $changed = (int) $order->driver_id !== (int) $driverId;
+            $wasActiveWithDriver = $order->isActiveWithDriver();
 
             $order->driver_id = $driverId;
             if ($driver && ($changed || ! $order->assigned_at || $order->isAwaitingAssignment())) {
@@ -179,16 +187,33 @@ class OrderWorkflow
                     'delivery_postponed_until' => null,
                     'delivery_failure_reason' => null,
                 ]);
-                $order->appendHistory('delivery_assigned', sprintf('Affectée à %s par %s', $driver->name, $user?->name ?? "Lav'Fast Flow"), $user, [
+                $label = $previous && $changed
+                    ? sprintf('Réaffectée : %s → %s par %s', $previous->name, $driver->name, $user?->name ?? "Lav'Fast Flow")
+                    : sprintf('Affectée à %s par %s', $driver->name, $user?->name ?? "Lav'Fast Flow");
+                $order->appendHistory('delivery_assigned', $label, $user, array_filter([
                     'driver_id' => $driver->id,
                     'driver_name' => $driver->name,
+                    'from_driver_id' => $previous?->id,
+                    'from_driver_name' => $changed ? $previous?->name : null,
+                ]));
+            } elseif (! $driver && $previous) {
+                $order->appendHistory('delivery_unassigned', sprintf('Livreur retiré (%s) par %s', $previous->name, $user?->name ?? "Lav'Fast Flow"), $user, [
+                    'from_driver_id' => $previous->id,
+                    'from_driver_name' => $previous->name,
                 ]);
             }
             $order->save();
+
+            if ($changed) {
+                $this->recordAssignment($order, $previous, $driver, $user);
+            }
             $this->syncDeliveryMission($order, $driverId);
 
+            // "Attribuée" (configurable): for a first assignment, and for a re-assignment of an
+            // order still with a driver (the new driver has not taken it yet).
             $category = $order->deliveryCategory();
-            if ($driverId && ($category === null || in_array($category, Catalog::ASSIGNABLE_CATEGORIES, true))) {
+            $reassigned = $changed && $previous && $wasActiveWithDriver;
+            if ($driverId && ($category === null || in_array($category, Catalog::ASSIGNABLE_CATEGORIES, true) || $reassigned)) {
                 $assign = $this->statusOnAssign();
                 if ($assign && $assign->code !== $order->delivery_status) {
                     $this->applyStatus($order, $assign, [], 'Attribution à '.$driver->name, $user);
@@ -197,6 +222,30 @@ class OrderWorkflow
 
             return $order;
         });
+    }
+
+    /** Immutable assignment trail ("Yassine → Achraf") shown in the order history. */
+    protected function recordAssignment(Order $order, ?Driver $from, ?Driver $to, ?User $user): void
+    {
+        $name = $to
+            ? ($from ? 'Réaffectée à '.$to->name : 'Affectée à '.$to->name)
+            : 'Livreur retiré';
+
+        OrderStatusHistory::create([
+            'order_id' => $order->id,
+            'kind' => 'affectation',
+            'status_code' => $to ? ($from ? 'driver_reassigned' : 'driver_assigned') : 'driver_removed',
+            'status_name' => $name,
+            'status_color' => $to ? '#2563eb' : '#64748b',
+            'data' => array_filter([
+                'from_driver_id' => $from?->id,
+                'from_driver_name' => $from?->name,
+                'to_driver_id' => $to?->id,
+                'to_driver_name' => $to?->name,
+            ], fn ($v) => $v !== null),
+            'note' => $from && $to ? $from->name.' → '.$to->name : null,
+            'user_id' => $user?->id ?? CurrentUser::id(),
+        ]);
     }
 
     /* ------------------------------------------------------------ delivery status */

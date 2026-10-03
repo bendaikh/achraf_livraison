@@ -65,6 +65,7 @@ class AuthenticatedSessionController extends Controller
             'role_label' => $user->roleLabel(),
             'is_livreur' => $user->isLivreur(),
             'is_admin' => $user->isAdmin(),
+            'permissions' => \App\Support\Permissions::forUser($user),
             'driver' => $user->driver ? [
                 'id' => $user->driver->id,
                 'name' => $user->driver->name,

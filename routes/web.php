@@ -62,7 +62,7 @@ Route::middleware('auth')->group(function () {
         Route::prefix('api/assignment')->group(function () {
             Route::get('/orders', [AssignmentController::class, 'index']);
             Route::get('/orders/{order}', [AssignmentController::class, 'show']);
-            Route::post('/assign', [AssignmentController::class, 'assign']);
+            Route::post('/assign', [AssignmentController::class, 'assign'])->middleware('can:orders.assign_driver');
         });
 
         // Livreurs (/api/drivers…) and Commandes (/api/orders…): see routes/api.php.

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Plus, RotateCcw, Search, X } from 'lucide-react';
+import { Bike, ChevronLeft, ChevronRight, Plus, RotateCcw, Search, X } from 'lucide-react';
 import api, { errorMessage } from '../lib/api';
 import { useMeta } from '../context/MetaContext';
 import useUserPreference from '../hooks/useUserPreference';
@@ -9,6 +9,8 @@ import { Alert, Button, Card, Checkbox, EmptyState, Input, PageHeader, Select, S
 import ColumnSelector from '../components/orders/ColumnSelector';
 import OrderForm from '../components/orders/OrderForm';
 import SpeedafBulkActions from '../components/orders/SpeedafBulkActions';
+import LocalAssignDrawer from '../components/orders/LocalAssignDrawer';
+import { useAuth } from '../contexts/AuthContext';
 import { DEFAULT_COLUMN_PREFS, ORDER_COLUMNS, renderCell } from '../components/orders/orderColumns';
 
 const FILTER_KEYS = ['q', 'delivery_status_id', 'status_category', 'confirmation_status', 'driver_id', 'speedaf', 'date_from', 'date_to'];
@@ -23,6 +25,8 @@ export default function Orders() {
     const [search, setSearch] = useState(params.get('q') || '');
     const [prefs, setPrefs] = useUserPreference('orders.columns', DEFAULT_COLUMN_PREFS);
     const selection = useSelection();
+    const { can } = useAuth();
+    const [assigning, setAssigning] = useState(false);
 
     const page = Number(params.get('page') || 1);
     const filters = Object.fromEntries(FILTER_KEYS.map((k) => [k, params.get(k) || '']));
@@ -161,6 +165,11 @@ export default function Orders() {
                 <div className="sticky top-16 z-20 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm shadow-sm">
                     <span className="font-semibold text-blue-800">{selection.count} commande(s) sélectionnée(s)</span>
                     <div className="flex flex-wrap items-center gap-2">
+                        {can('orders.assign_driver') ? (
+                            <Button size="sm" onClick={() => setAssigning(true)}>
+                                <Bike className="h-3.5 w-3.5" /> Affecter à livraison locale
+                            </Button>
+                        ) : null}
                         <SpeedafBulkActions ids={selection.selectedIds} onDone={load} />
                         <Button size="sm" variant="ghost" onClick={selection.clear}>
                             Désélectionner
@@ -270,6 +279,8 @@ export default function Orders() {
                     ) : null}
                 </>
             )}
+
+            <LocalAssignDrawer open={assigning} onClose={() => setAssigning(false)} orderIds={selection.selectedIds} onDone={load} />
 
             <OrderForm
                 open={creating}

@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\ClosingController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DeliveryStatusController;
 use App\Http\Controllers\Api\DriverController;
+use App\Http\Controllers\Api\LocalAssignmentController;
 use App\Http\Controllers\Api\LogisticsPartnerController;
 use App\Http\Controllers\Api\MetaController;
 use App\Http\Controllers\Api\MissionController;
@@ -41,6 +42,10 @@ Route::middleware(['web', 'auth', 'admin.access'])->group(function () {
     Route::post('logistics-partners/{logisticsPartner}/deactivate', [LogisticsPartnerController::class, 'deactivate']);
     Route::post('logistics-partners/{logisticsPartner}/activate', [LogisticsPartnerController::class, 'activate']);
     Route::post('logistics-partners/{logisticsPartner}/favorite', [LogisticsPartnerController::class, 'favorite']);
+
+    // Commandes → Affecter à livraison locale (bulk + fiche commande)
+    Route::get('local-delivery/drivers', [LocalAssignmentController::class, 'drivers']);
+    Route::post('local-delivery/assign', [LocalAssignmentController::class, 'assign'])->middleware('can:orders.assign_driver');
 
     Route::get('orders', [OrderController::class, 'index']);
     Route::post('orders', [OrderController::class, 'store']);

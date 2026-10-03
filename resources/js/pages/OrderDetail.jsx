@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Package } from 'lucide-react';
+import { ArrowLeft, Bike, Package } from 'lucide-react';
 import api, { errorMessage } from '../lib/api';
 import { useMeta } from '../context/MetaContext';
 import { formatDH, formatDateTime, formatDate } from '../lib/format';
-import { Alert, Card, EmptyState, Select, Spinner, Field } from '../components/ui';
+import { Alert, Button, Card, EmptyState, Spinner } from '../components/ui';
+import LocalAssignDrawer from '../components/orders/LocalAssignDrawer';
+import { useAuth } from '../contexts/AuthContext';
 import { ColorBadge, StatusBadge } from '../components/ui/Badge';
 import StatusChangeForm from '../components/orders/StatusChangeForm';
 import SpeedafOrderCard from '../components/orders/SpeedafOrderCard';
+
+const HISTORY_KINDS = { confirmation: 'Confirmation', affectation: 'Affectation', produits: 'Produits', expedition: 'Expédition' };
 
 function Info({ label, children }) {
     return (
@@ -24,6 +28,8 @@ export default function OrderDetail() {
     const [order, setOrder] = useState(null);
     const [error, setError] = useState(null);
     const [busy, setBusy] = useState(false);
+    const [assigning, setAssigning] = useState(false);
+    const { can } = useAuth();
 
     const load = useCallback(async () => {
         try {
@@ -136,8 +142,8 @@ export default function OrderDetail() {
                                             <div className="min-w-0">
                                                 <div className="flex flex-wrap items-center gap-2">
                                                     <ColorBadge color={h.status_color} label={h.status_name} />
-                                                    {h.kind === 'confirmation' ? (
-                                                        <span className="text-[11px] font-semibold uppercase text-slate-400">Confirmation</span>
+                                                    {h.kind !== 'livraison' ? (
+                                                        <span className="text-[11px] font-semibold uppercase text-slate-400">{HISTORY_KINDS[h.kind] || h.kind}</span>
                                                     ) : null}
                                                 </div>
                                                 <div className="mt-1 text-xs text-slate-500">
@@ -190,22 +196,51 @@ export default function OrderDetail() {
                         </div>
                     </Card>
 
-                    <Card title="Livreur">
-                        <Field label="Livreur assigné" hint="L'attribution crée la mission de livraison avec le tarif actuel du livreur.">
-                            <Select
-                                value={order.driver_id || ''}
-                                disabled={busy}
-                                onChange={(e) => act(() => api.put(`/orders/${order.id}`, { driver_id: e.target.value ? Number(e.target.value) : null }))}
-                            >
-                                <option value="">— Aucun —</option>
-                                {meta.drivers.map((d) => (
-                                    <option key={d.id} value={d.id}>
-                                        {d.name}
-                                    </option>
-                                ))}
-                            </Select>
-                        </Field>
+                    <Card title="Livraison locale">
+                        {order.driver ? (
+                            <div className="mb-3 flex items-center gap-3">
+                                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                                    <Bike className="h-4 w-4" />
+                                </span>
+                                <div className="min-w-0">
+                                    <div className="font-semibold text-slate-800">{order.driver.name}</div>
+                                    <div className="text-xs text-slate-500">
+                                        {order.assigned_at ? `Affectée le ${formatDateTime(order.assigned_at)}` : 'Livreur assigné'}
+                                        {order.assigned_by_name ? ` par ${order.assigned_by_name}` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <p className="mb-3 text-sm text-slate-500">Aucun livreur local.</p>
+                        )}
+                        {can('orders.assign_driver') ? (
+                            <div className="flex flex-wrap gap-2">
+                                <Button size="sm" onClick={() => setAssigning(true)} disabled={busy}>
+                                    <Bike className="h-3.5 w-3.5" /> {order.driver ? 'Réaffecter' : 'Affecter à livraison locale'}
+                                </Button>
+                                {order.driver ? (
+                                    <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        disabled={busy}
+                                        onClick={() => window.confirm('Retirer le livreur de cette commande ?') && act(() => api.put(`/orders/${order.id}`, { driver_id: null }))}
+                                    >
+                                        Retirer le livreur
+                                    </Button>
+                                ) : null}
+                            </div>
+                        ) : (
+                            <p className="text-xs text-slate-400">Vous n’avez pas le droit d’affecter des livreurs.</p>
+                        )}
+                        <p className="mt-2 text-[11px] text-slate-400">L’affectation crée la mission de livraison avec le tarif actuel du livreur.</p>
                     </Card>
+                    <LocalAssignDrawer
+                        open={assigning}
+                        onClose={() => setAssigning(false)}
+                        orderIds={[order.id]}
+                        currentDriverId={order.driver_id}
+                        onDone={() => load()}
+                    />
 
                     <SpeedafOrderCard order={order} onChanged={setOrder} />
 

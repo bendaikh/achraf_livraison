@@ -20,6 +20,7 @@
                 'role_label' => $authUser->roleLabel(),
                 'is_livreur' => $authUser->isLivreur(),
                 'is_admin' => $authUser->isAdmin(),
+                'permissions' => \App\Support\Permissions::forUser($authUser),
                 'driver' => $authUser->driver ? [
                     'id' => $authUser->driver->id,
                     'name' => $authUser->driver->name,

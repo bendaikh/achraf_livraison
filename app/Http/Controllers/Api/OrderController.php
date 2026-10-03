@@ -96,7 +96,7 @@ class OrderController extends Controller
         if ($confirmation && $confirmation !== $order->confirmation_status) {
             $this->workflow->changeConfirmation($order, $confirmation, $request->user());
         }
-        if ($driverId) {
+        if ($driverId && $request->user()?->can('orders.assign_driver')) {
             $this->workflow->assignDriver($order, $driverId, $request->user());
         }
 
@@ -110,6 +110,9 @@ class OrderController extends Controller
         $driverId = $data['driver_id'] ?? null;
         unset($data['driver_id'], $data['confirmation_status']);
 
+        if ($hasDriver && (int) $driverId !== (int) $order->driver_id && ! $request->user()?->can('orders.assign_driver')) {
+            abort(403, 'Vous n’avez pas le droit d’affecter des commandes à un livreur.');
+        }
         $order->fill(Order::attributesFromForm($data, $order))->save();
         if ($hasDriver && (int) $driverId !== (int) $order->driver_id) {
             $this->workflow->assignDriver($order, $driverId, $request->user());
@@ -157,7 +160,7 @@ class OrderController extends Controller
 
     protected function detailRelations(): array
     {
-        return ['deliveryStatus', 'driver', 'assignedUser', 'shop:id,shop_domain,shop_name', 'missions.driver', 'histories.user', 'speedafShipments'];
+        return ['deliveryStatus', 'driver', 'assignedUser', 'assignedByUser:id,name', 'shop:id,shop_domain,shop_name', 'missions.driver', 'histories.user', 'speedafShipments'];
     }
 
     protected function validated(Request $request, bool $partial = false): array

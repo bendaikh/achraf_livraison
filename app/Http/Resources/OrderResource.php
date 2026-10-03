@@ -45,6 +45,7 @@ class OrderResource extends JsonResource
             'delivery_status' => $status ? new DeliveryStatusResource($status) : null,
             'driver_id' => $this->driver_id,
             'driver' => $this->whenLoaded('driver', fn () => $this->driver ? ['id' => $this->driver->id, 'name' => $this->driver->name] : null),
+            'assigned_by_name' => $this->whenLoaded('assignedByUser', fn () => $this->assignedByUser?->name),
             'carrier' => $this->carrier,
             'assigned_user_id' => $this->assigned_user_id,
             'assigned_user' => $this->whenLoaded('assignedUser', fn () => $this->assignedUser ? ['id' => $this->assignedUser->id, 'name' => $this->assignedUser->name] : null),

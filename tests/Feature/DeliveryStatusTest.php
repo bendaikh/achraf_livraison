@@ -152,6 +152,7 @@ class DeliveryStatusTest extends TestCase
 
         $this->assertDatabaseHas('missions', ['order_id' => $order->id, 'type' => 'livraison', 'status' => 'echouee']);
         $this->assertDatabaseHas('missions', ['order_id' => $order->id, 'type' => 'retour', 'status' => 'a_faire', 'driver_price' => 7]);
-        $this->assertSame(4, $order->histories()->count()); // confirmation + à attribuer + attribuée + retour
+        $this->assertSame(4, $order->histories()->where('kind', '!=', 'affectation')->count()); // confirmation + à attribuer + attribuée + retour
+        $this->assertSame(1, $order->histories()->where('kind', 'affectation')->count()); // driver assignment trail (T2)
     }
 }
