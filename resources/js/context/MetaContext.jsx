@@ -53,6 +53,7 @@ export function MetaProvider({ children }) {
             currentUser: m.current_user || null,
             users: m.users || [],
             services: m.services || [],
+            sources: m.sources || [],
             confirmationMap: byValue(m.confirmation_statuses),
             missionTypeMap: byValue(m.mission_types),
             missionStatusMap: byValue(m.mission_statuses),

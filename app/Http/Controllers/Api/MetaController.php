@@ -7,6 +7,7 @@ use App\Http\Resources\DeliveryStatusResource;
 use App\Models\ConfirmationStatus;
 use App\Models\DeliveryStatus;
 use App\Models\Driver;
+use App\Models\Order;
 use App\Models\Service;
 use App\Models\Setting;
 use App\Models\User;
@@ -35,6 +36,7 @@ class MetaController extends Controller
             'drivers' => Driver::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'default_tariffs' => Setting::defaultTariffs(),
             'users' => User::query()->where('role', '!=', User::ROLE_LIVREUR)->where('is_active', true)->orderBy('name')->get(['id', 'name', 'service_id']),
+            'sources' => Order::query()->whereNotNull('source')->distinct()->orderBy('source')->pluck('source'),
             'services' => Service::query()->where('is_active', true)->orderBy('position')->orderBy('name')->get(['id', 'name']),
             'driver_actions' => Catalog::toOptions(Catalog::DRIVER_ACTIONS),
             'current_user' => $user ? ['id' => $user->id, 'name' => $user->name, 'role' => $user->role] : null,

@@ -13,14 +13,30 @@ import QuickShip from '../components/orders/QuickShip';
 import useCarriers from '../hooks/useCarriers';
 import LocalAssignDrawer from '../components/orders/LocalAssignDrawer';
 import AgentAssignDrawer from '../components/orders/AgentAssignDrawer';
+import KanbanBoard from '../components/orders/KanbanBoard';
+import StatusMoveDialog from '../components/orders/StatusMoveDialog';
 import { useAuth } from '../contexts/AuthContext';
 import { COLUMN_PREFS_KEY, DEFAULT_COLUMN_PREFS, ORDER_COLUMNS, ProductPhoto, renderCell } from '../components/orders/orderColumns';
 
 const FILTER_KEYS = [
-    'q', 'delivery_status_id', 'status_category', 'confirmation_status', 'driver_id', 'carrier', 'payment_method',
-    'city', 'assigned_user_id', 'period', 'speedaf', 'date_from', 'date_to', 'out_of_stock', 'late',
+    'q',
+    'delivery_status_id',
+    'status_category',
+    'confirmation_status',
+    'driver_id',
+    'carrier',
+    'payment_method',
+    'city',
+    'assigned_user_id',
+    'source',
+    'period',
+    'speedaf',
+    'date_from',
+    'date_to',
+    'out_of_stock',
+    'late',
 ];
-const ADVANCED_KEYS = ['city', 'assigned_user_id', 'date_from', 'date_to'];
+const ADVANCED_KEYS = ['city', 'assigned_user_id', 'source', 'date_from', 'date_to'];
 const PERIODS = [
     ['today', 'Aujourd’hui'],
     ['yesterday', 'Hier'],
@@ -42,6 +58,19 @@ export default function Orders() {
     const { can } = useAuth();
     const [assigning, setAssigning] = useState(false);
     const [assigningAgent, setAssigningAgent] = useState(false);
+    // T12 — Tableau | Kanban (remembered per browser)
+    const [view, setViewState] = useState(() => (typeof window !== 'undefined' && window.localStorage.getItem('lavfast:orders-view')) || 'table');
+    const setView = (v) => {
+        window.localStorage.setItem('lavfast:orders-view', v);
+        setViewState(v);
+    };
+    const [reloadKey, setReloadKey] = useState(0);
+    const [bulkMove, setBulkMove] = useState(null);
+    const refreshAll = () => {
+        load();
+        setReloadKey((k) => k + 1);
+    };
+    const kanbanFilters = useMemo(() => Object.fromEntries([...params.entries()].filter(([k, v]) => v && k !== 'page')), [params]);
     const { carriers } = useCarriers();
     const [cityInput, setCityInput] = useState(params.get('city') || '');
     const [showAdvanced, setShowAdvanced] = useState(() => ADVANCED_KEYS.some((k) => params.get(k)));
@@ -62,7 +91,9 @@ export default function Orders() {
         setError(null);
         try {
             const query = Object.fromEntries([...params.entries()].filter(([, v]) => v));
-            const { data } = await api.get('/orders', { params: { per_page: 25, ...query } });
+            const { data } = await api.get('/orders', {
+                params: { per_page: 25, ...query },
+            });
             setResult(data);
         } catch (e) {
             setError(errorMessage(e));
@@ -115,9 +146,28 @@ export default function Orders() {
                 title="Commandes"
                 subtitle={result ? `${result.meta?.total ?? 0} commande(s)` : 'Liste des commandes'}
                 actions={
-                    <Button onClick={() => setCreating(true)}>
-                        <Plus className="h-4 w-4" /> Nouvelle commande
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <div className="inline-flex rounded-xl border border-slate-200 bg-white p-0.5 text-sm font-semibold" role="tablist" aria-label="Vue">
+                            {[
+                                ['table', 'Tableau'],
+                                ['kanban', 'Kanban'],
+                            ].map(([v, l]) => (
+                                <button
+                                    key={v}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={view === v}
+                                    onClick={() => setView(v)}
+                                    className={`rounded-lg px-3 py-1.5 ${view === v ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+                                >
+                                    {l}
+                                </button>
+                            ))}
+                        </div>
+                        <Button onClick={() => setCreating(true)}>
+                            <Plus className="h-4 w-4" /> Nouvelle commande
+                        </Button>
+                    </div>
                 }
             />
 
@@ -197,7 +247,7 @@ export default function Orders() {
                     </div>
                 </div>
                 {showAdvanced ? (
-                    <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+                    <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-5">
                         <Input value={cityInput} onChange={(e) => setCityInput(e.target.value)} placeholder="Ville…" aria-label="Ville" />
                         <Select value={filters.assigned_user_id} onChange={(e) => setFilter('assigned_user_id', e.target.value)} aria-label="Utilisateur assigné">
                             <option value="">Utilisateur assigné</option>
@@ -205,6 +255,14 @@ export default function Orders() {
                             {(meta.users || []).map((u) => (
                                 <option key={u.id} value={u.id}>
                                     {u.name}
+                                </option>
+                            ))}
+                        </Select>
+                        <Select value={filters.source} onChange={(e) => setFilter('source', e.target.value)} aria-label="Source">
+                            <option value="">Source</option>
+                            {(meta.sources || []).map((src) => (
+                                <option key={src} value={src}>
+                                    {src === 'manual' ? 'Manuelle' : src === 'shopify' ? 'Shopify' : src}
                                 </option>
                             ))}
                         </Select>
@@ -275,7 +333,34 @@ export default function Orders() {
                                 <UserCheck className="h-3.5 w-3.5" /> Assigner à un agent
                             </Button>
                         ) : null}
-                        <CarrierBulkActions ids={selection.selectedIds} onDone={load} />
+                        <Select
+                            value=""
+                            onChange={(e) => {
+                                const st = meta.statuses.find((x) => String(x.id) === e.target.value);
+                                if (st)
+                                    setBulkMove({
+                                        orderIds: selection.selectedIds,
+                                        status: st,
+                                        label: `${selection.count} commande(s) → « ${st.name} ». Mêmes règles qu’un changement manuel (transitions, champs obligatoires).`,
+                                    });
+                            }}
+                            aria-label="Changer le statut"
+                            className="h-8 max-w-44 text-xs"
+                        >
+                            <option value="">Changer le statut…</option>
+                            {meta.statuses.map((st) => (
+                                <option key={st.id} value={st.id}>
+                                    {st.name}
+                                </option>
+                            ))}
+                        </Select>
+                        <CarrierBulkActions
+                            ids={selection.selectedIds}
+                            onDone={() => {
+                                load();
+                                setReloadKey((k) => k + 1);
+                            }}
+                        />
                         <Button size="sm" variant="ghost" onClick={selection.clear}>
                             Désélectionner
                         </Button>
@@ -285,7 +370,9 @@ export default function Orders() {
 
             <Alert>{error}</Alert>
 
-            {!result ? (
+            {view === 'kanban' ? (
+                <KanbanBoard filters={kanbanFilters} selection={selection} reloadKey={reloadKey} onChanged={() => setReloadKey((k) => k)} />
+            ) : !result ? (
                 <Spinner />
             ) : orders.length === 0 ? (
                 <Card>
@@ -310,7 +397,12 @@ export default function Orders() {
                                 key={o.id}
                                 className={`flex gap-3 rounded-2xl border bg-white p-3 shadow-sm ${selection.isSelected(o.id) ? 'border-blue-300 ring-2 ring-blue-100' : 'border-slate-200/80'}`}
                             >
-                                <Checkbox checked={selection.isSelected(o.id)} onChange={() => selection.toggle(o.id)} className="mt-1" aria-label={`Sélectionner ${o.reference}`} />
+                                <Checkbox
+                                    checked={selection.isSelected(o.id)}
+                                    onChange={() => selection.toggle(o.id)}
+                                    className="mt-1"
+                                    aria-label={`Sélectionner ${o.reference}`}
+                                />
                                 <ProductPhoto order={o} size="h-11 w-11" />
                                 <Link to={`/commandes/${o.id}`} className="min-w-0 flex-1">
                                     <div className="flex items-center justify-between gap-2">
@@ -348,8 +440,11 @@ export default function Orders() {
                                             />
                                         </th>
                                         {visibleColumns.map((c) => (
-                                            <th key={c.key} title={c.title}
-                                                className={`whitespace-nowrap px-1.5 py-2.5 ${c.key === 'photo' ? 'w-10' : ''} ${c.key === 'amount' ? 'text-right' : ''}`}>
+                                            <th
+                                                key={c.key}
+                                                title={c.title}
+                                                className={`whitespace-nowrap px-1.5 py-2.5 ${c.key === 'photo' ? 'w-10' : ''} ${c.key === 'amount' ? 'text-right' : ''}`}
+                                            >
                                                 {c.key === 'photo' ? <span className="sr-only">{c.label}</span> : c.label}
                                             </th>
                                         ))}
@@ -397,8 +492,18 @@ export default function Orders() {
                 </>
             )}
 
-            <AgentAssignDrawer open={assigningAgent} onClose={() => setAssigningAgent(false)} orderIds={selection.selectedIds} onDone={load} />
-            <LocalAssignDrawer open={assigning} onClose={() => setAssigning(false)} orderIds={selection.selectedIds} onDone={load} />
+            <StatusMoveDialog
+                move={bulkMove}
+                onClose={() => setBulkMove(null)}
+                onDone={() => {
+                    setBulkMove(null);
+                    selection.clear();
+                    load();
+                    setReloadKey((k) => k + 1);
+                }}
+            />
+            <AgentAssignDrawer open={assigningAgent} onClose={() => setAssigningAgent(false)} orderIds={selection.selectedIds} onDone={refreshAll} />
+            <LocalAssignDrawer open={assigning} onClose={() => setAssigning(false)} orderIds={selection.selectedIds} onDone={refreshAll} />
 
             <OrderForm
                 open={creating}

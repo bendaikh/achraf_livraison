@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\DeliveryStatusResource;
 use App\Http\Resources\OrderResource;
 use App\Models\ConfirmationStatus;
 use App\Models\DeliveryStatus;
@@ -15,9 +16,11 @@ use App\Services\Catalog\CatalogLookup;
 use App\Services\CentreService;
 use App\Services\OrderWorkflow;
 use App\Support\Catalog;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Commandes (admin). Lists Shopify-synced and manual orders with the configurable
@@ -31,6 +34,19 @@ class OrderController extends Controller
     {
         $q = Order::query()->with(['deliveryStatus', 'driver', 'assignedUser', 'shop:id,shop_domain,shop_name', 'speedafShipments']);
 
+        $this->applyFilters($q, $request);
+
+        $perPage = min(max($request->integer('per_page', 25), 5), 100);
+
+        $page = $q->orderByDesc('created_at')->orderByDesc('id')->paginate($perPage);
+        app(CatalogLookup::class)->prime($page->getCollection());
+
+        return OrderResource::collection($page);
+    }
+
+    /** Table & Kanban share exactly the same filters (T12). */
+    protected function applyFilters(Builder $q, Request $request): void
+    {
         $search = trim((string) ($request->query('q') ?? $request->query('search', '')));
         if ($search !== '') {
             $q->where(function ($w) use ($search) {
@@ -112,12 +128,84 @@ class OrderController extends Controller
             $q->where('created_at', '<=', Carbon::parse($request->query('date_to'))->endOfDay());
         }
 
-        $perPage = min(max($request->integer('per_page', 25), 5), 100);
+        if ($request->filled('source')) {
+            $q->where('source', $request->query('source'));
+        }
+    }
 
-        $page = $q->orderByDesc('created_at')->orderByDesc('id')->paginate($perPage);
-        app(CatalogLookup::class)->prime($page->getCollection());
+    /**
+     * GET /api/orders/kanban — one column per active delivery status (Paramètres → Statuts, ordered),
+     * real filtered counts + first cards. Orders without status sit in the first "avant livraison" column.
+     * ?column=<code>&offset=n loads more cards of one column.
+     */
+    public function kanban(Request $request)
+    {
+        $statuses = DeliveryStatus::query()->where('is_active', true)->orderBy('sort_order')->orderBy('id')->with('transitionsFrom')->get();
+        $nullCode = $statuses->firstWhere('category', 'avant_livraison')?->code ?? $statuses->first()?->code;
+        $limit = min(max($request->integer('limit', 30), 5), 100);
+        $base = Order::query();
+        $this->applyFilters($base, $request);
+        $counts = (clone $base)->selectRaw('delivery_status, COUNT(*) c')->groupBy('delivery_status')->pluck('c', 'delivery_status');
+        $scope = function ($q, string $code) use ($nullCode) {
+            $code === $nullCode ? $q->where(fn ($w) => $w->where('delivery_status', $code)->orWhereNull('delivery_status')) : $q->where('delivery_status', $code);
+        };
+        $only = $request->query('column');
+        $offset = max(0, $request->integer('offset', 0));
+        $catalog = app(CatalogLookup::class);
+        $columns = [];
+        foreach ($statuses as $st) {
+            if ($only && $only !== $st->code) {
+                continue;
+            }
+            $count = (int) ($counts[$st->code] ?? 0) + ($st->code === $nullCode ? (int) ($counts[''] ?? 0) : 0);
+            $q = (clone $base)->with(['deliveryStatus', 'driver', 'assignedUser', 'shop:id,shop_domain,shop_name', 'speedafShipments']);
+            $scope($q, $st->code);
+            $orders = $q->orderByDesc('created_at')->orderByDesc('id')->skip($offset)->take($limit)->get();
+            $catalog->prime($orders);
+            $columns[] = [
+                'status' => (new DeliveryStatusResource($st))->resolve(),
+                'count' => $count,
+                'orders' => OrderResource::collection($orders)->resolve(),
+                'has_more' => $offset + $orders->count() < $count,
+            ];
+        }
 
-        return OrderResource::collection($page);
+        return response()->json([
+            'columns' => $columns,
+            'transitions_enforced' => $this->workflow->transitionsEnforced(),
+        ]);
+    }
+
+    /** POST /api/orders/bulk-status — same validations as a manual change, per order (T12 bulk). */
+    public function bulkStatus(Request $request)
+    {
+        $data = $request->validate([
+            'order_ids' => ['required', 'array', 'min:1', 'max:200'],
+            'order_ids.*' => ['integer'],
+            'delivery_status_id' => ['required', 'integer', 'exists:delivery_statuses,id'],
+            'reason' => ['nullable', 'string', 'max:255'],
+            'postponed_date' => ['nullable', 'date'],
+            'postponed_time' => ['nullable', 'date_format:H:i'],
+            'collected_amount' => ['nullable', 'numeric', 'min:0'],
+            'note' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $status = DeliveryStatus::findOrFail($data['delivery_status_id']);
+        if (! empty($data['postponed_date'])) {
+            $data['postponed_at'] = Carbon::parse($data['postponed_date'].' '.($data['postponed_time'] ?? '09:00'))->format('Y-m-d H:i');
+        }
+        $ok = 0;
+        $failed = [];
+        foreach (Order::query()->whereIn('id', $data['order_ids'])->get() as $order) {
+            try {
+                $this->workflow->changeStatus($order, $status, $data, $request->user());
+                $ok++;
+            } catch (ValidationException $e) {
+                $failed[] = ['id' => $order->id, 'reference' => $order->reference(), 'message' => collect($e->errors())->flatten()->first()];
+            }
+        }
+        $msg = "{$ok} commande(s) passée(s) en « {$status->name} ».".($failed ? ' '.count($failed).' refusée(s).' : '');
+
+        return response()->json(['message' => $msg, 'updated' => $ok, 'failed' => $failed], $ok || ! $failed ? 200 : 422);
     }
 
     /** POST /api/orders/assign-agent {order_ids, user_id|null} — confirmation agent (bulk). */

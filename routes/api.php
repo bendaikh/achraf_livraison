@@ -91,6 +91,8 @@ Route::middleware(['web', 'auth', 'admin.access'])->group(function () {
     Route::post('local-delivery/assign', [LocalAssignmentController::class, 'assign'])->middleware('can:orders.assign_driver');
 
     Route::get('orders', [OrderController::class, 'index']);
+    Route::get('orders/kanban', [OrderController::class, 'kanban']);
+    Route::post('orders/bulk-status', [OrderController::class, 'bulkStatus']);
     Route::post('orders/assign-agent', [OrderController::class, 'assignAgent'])->middleware('can:orders.assign_agent');
     Route::post('orders', [OrderController::class, 'store']);
     Route::get('orders/{order}', [OrderController::class, 'show']);
