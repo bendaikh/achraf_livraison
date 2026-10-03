@@ -137,6 +137,7 @@ export default function Login() {
                         {submitting ? 'Connexion…' : 'Se connecter'}
                     </button>
 
+                    {import.meta.env.DEV && (
                     <div className="mt-5 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3.5 py-3 text-left">
                         <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
                             Identifiants Super Admin
@@ -163,6 +164,7 @@ export default function Login() {
                             Remplir automatiquement
                         </button>
                     </div>
+                    )}
                 </form>
             </div>
         </div>
