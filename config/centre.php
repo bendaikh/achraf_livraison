@@ -27,7 +27,7 @@ return [
             'title' => 'Centre d’expédition',
             'description' => 'Colis envoyés ou en attente chez les sociétés de livraison.',
             'icon' => 'Truck', 'color' => '#ea580c',
-            'to' => '/commandes?speedaf=1',
+            'to' => '/commandes?carrier=external',
             'counter' => 'atCarriers',
         ],
         'livraison' => [

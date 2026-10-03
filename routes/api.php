@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\CarrierController;
 use App\Http\Controllers\Api\CentreController;
 use App\Http\Controllers\Api\ClosingController;
 use App\Http\Controllers\Api\DashboardController;
@@ -94,9 +95,12 @@ Route::middleware(['web', 'auth', 'admin.access'])->group(function () {
     Route::post('integrations/speedaf/test', [SpeedafIntegrationController::class, 'test']);
     Route::post('integrations/speedaf/webhook/subscribe', [SpeedafIntegrationController::class, 'subscribeWebhook']);
     Route::post('integrations/speedaf/sync', [SpeedafIntegrationController::class, 'sync']);
-    Route::post('speedaf/orders/send', [SpeedafOrderController::class, 'send']);
+    Route::get('carriers', [CarrierController::class, 'index']);
+    Route::post('carriers/labels', [CarrierController::class, 'labels']);
+    Route::post('carriers/{carrier}/ship', [CarrierController::class, 'ship'])->middleware('can:orders.ship')->where('carrier', '[a-z0-9_-]+');
+    Route::post('speedaf/orders/send', [SpeedafOrderController::class, 'send'])->middleware('can:orders.ship');
     Route::post('speedaf/labels', [SpeedafOrderController::class, 'labels']);
-    Route::post('speedaf/orders/{order}/cancel', [SpeedafOrderController::class, 'cancel']);
+    Route::post('speedaf/orders/{order}/cancel', [SpeedafOrderController::class, 'cancel'])->middleware('can:orders.ship');
     Route::post('speedaf/orders/{order}/sync', [SpeedafOrderController::class, 'sync']);
     Route::get('speedaf/orders/{order}/label', [SpeedafOrderController::class, 'label']);
 

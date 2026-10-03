@@ -16,6 +16,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // One catalog cache per request (order lines ↔ synced Shopify products).
         $this->app->scoped(\App\Services\Catalog\CatalogLookup::class);
+        $this->app->singleton(\App\Services\Carriers\CarrierRegistry::class);
     }
 
     /**

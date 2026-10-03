@@ -44,6 +44,7 @@ class OrderResource extends JsonResource
             'payment_method' => $this->paymentMethod(),
             'financial_status' => $this->financial_status,
             'confirmation_status' => $this->confirmation_status,
+            'is_confirmed' => $this->isConfirmed(),
             'confirmation_status_label' => ConfirmationStatus::labelFor($this->confirmation_status),
             'confirmation_status_color' => ConfirmationStatus::colorFor($this->confirmation_status),
             'delivery_status_id' => $status?->id,
@@ -57,6 +58,7 @@ class OrderResource extends JsonResource
             'assigned_user_id' => $this->assigned_user_id,
             'assigned_user' => $this->whenLoaded('assignedUser', fn () => $this->assignedUser ? ['id' => $this->assignedUser->id, 'name' => $this->assignedUser->name] : null),
             // Speedaf waybill (null when never sent / cancelled), only when the relation is loaded.
+            'shipment' => $this->when($this->relationLoaded('speedafShipments'), fn () => app(\App\Services\Carriers\CarrierRegistry::class)->shipmentFor($this->resource)),
             'speedaf' => $this->when($this->relationLoaded('speedafShipments'), fn () => $this->currentSpeedafShipment()?->toSummary()),
             'speedaf_history' => $this->when($this->relationLoaded('speedafShipments') && $this->relationLoaded('histories'), fn () => $this->speedafShipments->map(fn ($s) => $s->toSummary() + ['tracks' => $s->tracks ?? []])->values()),
             'source' => $this->sourceLabel(),

@@ -70,6 +70,35 @@ class OrderController extends Controller
                 ? $q->whereHas('speedafShipments', $active)
                 : $q->whereDoesntHave('speedafShipments', $active);
         }
+        if ($request->filled('carrier')) {
+            app(\App\Services\Carriers\CarrierRegistry::class)->applyFilter($q, (string) $request->query('carrier'));
+        }
+        if ($request->filled('payment_method')) {
+            $request->query('payment_method') === 'paye'
+                ? $q->where('financial_status', 'paid')
+                : $q->where(fn ($w) => $w->whereNull('financial_status')->orWhere('financial_status', '!=', 'paid'));
+        }
+        if ($request->filled('city')) {
+            $q->where('shipping_address->city', 'like', '%'.trim((string) $request->query('city')).'%');
+        }
+        if ($request->filled('assigned_user_id')) {
+            $request->query('assigned_user_id') === 'none'
+                ? $q->whereNull('assigned_user_id')
+                : $q->where('assigned_user_id', $request->integer('assigned_user_id'));
+        }
+        if ($request->filled('period')) {
+            [$from, $to] = match ((string) $request->query('period')) {
+                'today' => [now()->startOfDay(), now()->endOfDay()],
+                'yesterday' => [now()->subDay()->startOfDay(), now()->subDay()->endOfDay()],
+                '7d' => [now()->subDays(6)->startOfDay(), now()->endOfDay()],
+                '30d' => [now()->subDays(29)->startOfDay(), now()->endOfDay()],
+                'month' => [now()->startOfMonth(), now()->endOfDay()],
+                default => [null, null],
+            };
+            if ($from) {
+                $q->whereBetween('created_at', [$from, $to]);
+            }
+        }
         if ($request->filled('date_from')) {
             $q->where('created_at', '>=', Carbon::parse($request->query('date_from'))->startOfDay());
         }

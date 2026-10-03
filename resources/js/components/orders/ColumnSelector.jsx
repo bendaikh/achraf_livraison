@@ -15,7 +15,7 @@ export default function ColumnSelector({ prefs, onChange }) {
     }, [open]);
 
     const current = prefs[mode] || [];
-    const columns = mode === 'mobile' ? ORDER_COLUMNS.filter((c) => c.key !== 'reference') : ORDER_COLUMNS;
+    const columns = mode === 'mobile' ? ORDER_COLUMNS.filter((c) => !['reference', 'photo', 'ship'].includes(c.key)) : ORDER_COLUMNS;
 
     function toggle(key) {
         const has = current.includes(key);

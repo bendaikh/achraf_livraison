@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Bike, ChevronLeft, ChevronRight, Plus, RotateCcw, Search, X } from 'lucide-react';
+import { Bike, ChevronLeft, ChevronRight, Plus, RotateCcw, Search, SlidersHorizontal, X } from 'lucide-react';
 import api, { errorMessage } from '../lib/api';
 import { useMeta } from '../context/MetaContext';
 import useUserPreference from '../hooks/useUserPreference';
@@ -8,12 +8,25 @@ import useSelection from '../hooks/useSelection';
 import { Alert, Button, Card, Checkbox, EmptyState, Input, PageHeader, Select, Spinner } from '../components/ui';
 import ColumnSelector from '../components/orders/ColumnSelector';
 import OrderForm from '../components/orders/OrderForm';
-import SpeedafBulkActions from '../components/orders/SpeedafBulkActions';
+import CarrierBulkActions from '../components/orders/CarrierBulkActions';
+import QuickShip from '../components/orders/QuickShip';
+import useCarriers from '../hooks/useCarriers';
 import LocalAssignDrawer from '../components/orders/LocalAssignDrawer';
 import { useAuth } from '../contexts/AuthContext';
-import { DEFAULT_COLUMN_PREFS, ORDER_COLUMNS, renderCell } from '../components/orders/orderColumns';
+import { COLUMN_PREFS_KEY, DEFAULT_COLUMN_PREFS, ORDER_COLUMNS, ProductPhoto, renderCell } from '../components/orders/orderColumns';
 
-const FILTER_KEYS = ['q', 'delivery_status_id', 'status_category', 'confirmation_status', 'driver_id', 'speedaf', 'date_from', 'date_to', 'out_of_stock', 'late'];
+const FILTER_KEYS = [
+    'q', 'delivery_status_id', 'status_category', 'confirmation_status', 'driver_id', 'carrier', 'payment_method',
+    'city', 'assigned_user_id', 'period', 'speedaf', 'date_from', 'date_to', 'out_of_stock', 'late',
+];
+const ADVANCED_KEYS = ['city', 'assigned_user_id', 'date_from', 'date_to'];
+const PERIODS = [
+    ['today', 'Aujourd’hui'],
+    ['yesterday', 'Hier'],
+    ['7d', '7 derniers jours'],
+    ['30d', '30 derniers jours'],
+    ['month', 'Ce mois-ci'],
+];
 
 export default function Orders() {
     const meta = useMeta();
@@ -23,10 +36,13 @@ export default function Orders() {
     const [error, setError] = useState(null);
     const [creating, setCreating] = useState(false);
     const [search, setSearch] = useState(params.get('q') || '');
-    const [prefs, setPrefs] = useUserPreference('orders.columns', DEFAULT_COLUMN_PREFS);
+    const [prefs, setPrefs] = useUserPreference(COLUMN_PREFS_KEY, DEFAULT_COLUMN_PREFS);
     const selection = useSelection();
     const { can } = useAuth();
     const [assigning, setAssigning] = useState(false);
+    const { carriers } = useCarriers();
+    const [cityInput, setCityInput] = useState(params.get('city') || '');
+    const [showAdvanced, setShowAdvanced] = useState(() => ADVANCED_KEYS.some((k) => params.get(k)));
 
     const page = Number(params.get('page') || 1);
     const filters = Object.fromEntries(FILTER_KEYS.map((k) => [k, params.get(k) || '']));
@@ -62,6 +78,14 @@ export default function Orders() {
         return () => clearTimeout(t);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [search]);
+
+    useEffect(() => {
+        const t = setTimeout(() => {
+            if ((params.get('city') || '') !== cityInput) setFilter('city', cityInput);
+        }, 400);
+        return () => clearTimeout(t);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [cityInput]);
 
     function setFilter(key, value) {
         const next = new URLSearchParams(params);
@@ -103,25 +127,33 @@ export default function Orders() {
                     </div>
                     <ColumnSelector prefs={{ ...DEFAULT_COLUMN_PREFS, ...prefs }} onChange={setPrefs} />
                 </div>
-                <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-6">
-                    <Select value={filters.delivery_status_id} onChange={(e) => setFilter('delivery_status_id', e.target.value)}>
-                        <option value="">Tous les statuts</option>
+                <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+                    <Select value={filters.delivery_status_id} onChange={(e) => setFilter('delivery_status_id', e.target.value)} aria-label="Statut">
+                        <option value="">Statut</option>
                         {meta.statuses.map((s) => (
                             <option key={s.id} value={s.id}>
                                 {s.name}
                             </option>
                         ))}
                     </Select>
-                    <Select value={filters.confirmation_status} onChange={(e) => setFilter('confirmation_status', e.target.value)}>
-                        <option value="">Toutes confirmations</option>
+                    <Select value={filters.confirmation_status} onChange={(e) => setFilter('confirmation_status', e.target.value)} aria-label="Confirmation">
+                        <option value="">Confirmation</option>
                         {meta.confirmationStatuses.map((c) => (
                             <option key={c.value} value={c.value}>
                                 {c.label}
                             </option>
                         ))}
                     </Select>
-                    <Select value={filters.driver_id} onChange={(e) => setFilter('driver_id', e.target.value)}>
-                        <option value="">Tous les livreurs</option>
+                    <Select value={filters.payment_method} onChange={(e) => setFilter('payment_method', e.target.value)} aria-label="Paiement">
+                        <option value="">Paiement</option>
+                        {(meta.paymentMethods || []).map((p) => (
+                            <option key={p.value} value={p.value}>
+                                {p.label}
+                            </option>
+                        ))}
+                    </Select>
+                    <Select value={filters.driver_id} onChange={(e) => setFilter('driver_id', e.target.value)} aria-label="Livreur">
+                        <option value="">Livreur</option>
                         <option value="any">Avec un livreur</option>
                         <option value="none">Sans livreur</option>
                         {meta.drivers.map((d) => (
@@ -130,20 +162,68 @@ export default function Orders() {
                             </option>
                         ))}
                     </Select>
-                    <Select value={filters.speedaf} onChange={(e) => setFilter('speedaf', e.target.value)}>
-                        <option value="">Speedaf : toutes</option>
-                        <option value="1">Envoyées à Speedaf</option>
-                        <option value="0">Non envoyées</option>
+                    <Select value={filters.carrier} onChange={(e) => setFilter('carrier', e.target.value)} aria-label="Transporteur">
+                        <option value="">Transporteur</option>
+                        <option value="external">Envoyées à une société</option>
+                        {carriers.map((c) => (
+                            <option key={c.key} value={c.key}>
+                                {c.label}
+                            </option>
+                        ))}
+                        <option value="local">Livraison locale</option>
+                        <option value="none">Non expédiées</option>
                     </Select>
-                    <Input type="date" value={filters.date_from} onChange={(e) => setFilter('date_from', e.target.value)} title="Du" />
-                    <Input type="date" value={filters.date_to} onChange={(e) => setFilter('date_to', e.target.value)} title="Au" />
+                    <div className="flex gap-2">
+                        <Select value={filters.period} onChange={(e) => setFilter('period', e.target.value)} aria-label="Période" className="min-w-0 flex-1">
+                            <option value="">Période</option>
+                            {PERIODS.map(([v, l]) => (
+                                <option key={v} value={v}>
+                                    {l}
+                                </option>
+                            ))}
+                        </Select>
+                        <button
+                            type="button"
+                            onClick={() => setShowAdvanced((v) => !v)}
+                            className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${showAdvanced ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}
+                            aria-expanded={showAdvanced}
+                            title="Plus de filtres"
+                            aria-label="Plus de filtres"
+                        >
+                            <SlidersHorizontal className="h-4 w-4" />
+                        </button>
+                    </div>
                 </div>
+                {showAdvanced ? (
+                    <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+                        <Input value={cityInput} onChange={(e) => setCityInput(e.target.value)} placeholder="Ville…" aria-label="Ville" />
+                        <Select value={filters.assigned_user_id} onChange={(e) => setFilter('assigned_user_id', e.target.value)} aria-label="Utilisateur assigné">
+                            <option value="">Utilisateur assigné</option>
+                            <option value="none">Non assignée</option>
+                            {(meta.users || []).map((u) => (
+                                <option key={u.id} value={u.id}>
+                                    {u.name}
+                                </option>
+                            ))}
+                        </Select>
+                        <Input type="date" value={filters.date_from} onChange={(e) => setFilter('date_from', e.target.value)} title="Du" aria-label="Du" />
+                        <Input type="date" value={filters.date_to} onChange={(e) => setFilter('date_to', e.target.value)} title="Au" aria-label="Au" />
+                    </div>
+                ) : null}
                 {activeFilters ? (
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                         {categoryLabel ? (
                             <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 font-semibold text-blue-700">
                                 Catégorie : {categoryLabel}
                                 <button type="button" onClick={() => setFilter('status_category', '')} aria-label="Retirer">
+                                    <X className="h-3 w-3" />
+                                </button>
+                            </span>
+                        ) : null}
+                        {filters.speedaf ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-1 font-semibold text-orange-700">
+                                {filters.speedaf === '1' ? 'Envoyées à Speedaf' : 'Non envoyées à Speedaf'}
+                                <button type="button" onClick={() => setFilter('speedaf', '')} aria-label="Retirer">
                                     <X className="h-3 w-3" />
                                 </button>
                             </span>
@@ -169,6 +249,7 @@ export default function Orders() {
                             variant="ghost"
                             onClick={() => {
                                 setSearch('');
+                                setCityInput('');
                                 setParams({}, { replace: true });
                             }}
                         >
@@ -187,7 +268,7 @@ export default function Orders() {
                                 <Bike className="h-3.5 w-3.5" /> Affecter à livraison locale
                             </Button>
                         ) : null}
-                        <SpeedafBulkActions ids={selection.selectedIds} onDone={load} />
+                        <CarrierBulkActions ids={selection.selectedIds} onDone={load} />
                         <Button size="sm" variant="ghost" onClick={selection.clear}>
                             Désélectionner
                         </Button>
@@ -223,8 +304,15 @@ export default function Orders() {
                                 className={`flex gap-3 rounded-2xl border bg-white p-3 shadow-sm ${selection.isSelected(o.id) ? 'border-blue-300 ring-2 ring-blue-100' : 'border-slate-200/80'}`}
                             >
                                 <Checkbox checked={selection.isSelected(o.id)} onChange={() => selection.toggle(o.id)} className="mt-1" aria-label={`Sélectionner ${o.reference}`} />
+                                <ProductPhoto order={o} size="h-11 w-11" />
                                 <Link to={`/commandes/${o.id}`} className="min-w-0 flex-1">
-                                    <div className="text-sm font-bold text-slate-900">{o.reference}</div>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="text-sm font-bold text-slate-900">{o.reference}</span>
+                                        <span onClick={(e) => e.preventDefault()}>
+                                            <QuickShip order={o} onChanged={load} compact />
+                                        </span>
+                                    </div>
+                                    <div className="truncate text-xs font-medium text-slate-600">{o.product_name}</div>
                                     <dl className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1.5">
                                         {mobileColumns.map((c) => (
                                             <div key={c.key} className="min-w-0">
@@ -244,7 +332,7 @@ export default function Orders() {
                             <table className="min-w-full text-left text-sm">
                                 <thead>
                                     <tr className="border-b border-slate-100 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                                        <th className="w-10 px-4 py-3">
+                                        <th className="w-8 py-2.5 pl-3 pr-1">
                                             <Checkbox
                                                 checked={allChecked}
                                                 indeterminate={someChecked}
@@ -253,8 +341,9 @@ export default function Orders() {
                                             />
                                         </th>
                                         {visibleColumns.map((c) => (
-                                            <th key={c.key} className="whitespace-nowrap px-3 py-3">
-                                                {c.label}
+                                            <th key={c.key} title={c.title}
+                                                className={`whitespace-nowrap px-1.5 py-2.5 ${c.key === 'photo' ? 'w-10' : ''} ${c.key === 'amount' ? 'text-right' : ''}`}>
+                                                {c.key === 'photo' ? <span className="sr-only">{c.label}</span> : c.label}
                                             </th>
                                         ))}
                                     </tr>
@@ -266,12 +355,16 @@ export default function Orders() {
                                             onClick={() => navigate(`/commandes/${o.id}`)}
                                             className={`cursor-pointer border-b border-slate-50 last:border-0 ${selection.isSelected(o.id) ? 'bg-blue-50/60' : 'hover:bg-slate-50/70'}`}
                                         >
-                                            <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                                            <td className="py-1.5 pl-3 pr-1" onClick={(e) => e.stopPropagation()}>
                                                 <Checkbox checked={selection.isSelected(o.id)} onChange={() => selection.toggle(o.id)} aria-label={`Sélectionner ${o.reference}`} />
                                             </td>
                                             {visibleColumns.map((c) => (
-                                                <td key={c.key} className="whitespace-nowrap px-3 py-3 text-slate-500">
-                                                    {renderCell(c.key, o, meta)}
+                                                <td
+                                                    key={c.key}
+                                                    className={`whitespace-nowrap px-1.5 py-1.5 text-xs text-slate-500 ${c.key === 'amount' ? 'text-right' : ''}`}
+                                                    onClick={c.key === 'ship' ? (e) => e.stopPropagation() : undefined}
+                                                >
+                                                    {c.key === 'ship' ? <QuickShip order={o} onChanged={load} /> : renderCell(c.key, o, meta)}
                                                 </td>
                                             ))}
                                         </tr>
