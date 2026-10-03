@@ -1,4 +1,8 @@
-import { Outlet } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
+import { getActiveModule } from '../../navigation';
+import { useAuth } from '../../contexts/AuthContext';
+import { pageTitle } from '../../lib/brand';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import BodyNav from './BodyNav';
@@ -7,6 +11,13 @@ import { WhatsAppUnreadProvider } from '../../contexts/WhatsAppUnreadContext';
 
 function LayoutShell() {
     const { collapsed } = useSidebar();
+    const location = useLocation();
+    const { user } = useAuth();
+
+    // Browser tab: "<Module> · Lav'Fast Flow"
+    useEffect(() => {
+        document.title = pageTitle(getActiveModule(location.pathname, user)?.label);
+    }, [location.pathname, user]);
 
     return (
         <div className="min-h-screen bg-[#f1f5f9]">

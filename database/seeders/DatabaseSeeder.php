@@ -31,7 +31,7 @@ class DatabaseSeeder extends Seeder
 
         // Company settings (Paramètres) — only set when missing so a re-seed never overwrites them.
         $defaults = [
-            'company_name' => 'Lavfast Flow',
+            'company_name' => "Lav'Fast Flow",
             'confirmation_alert_hours' => 24,
             // Default driver tariffs (DH) used to prefill new drivers.
             'default_tariffs' => ['livraison' => 20, 'ramassage' => 10, 'depot_partenaire' => 6, 'retour' => 7, 'echange' => 7],

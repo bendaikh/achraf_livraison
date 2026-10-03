@@ -39,7 +39,7 @@ class Company extends Model
     {
         return static::query()->firstOrCreate(
             ['slug' => 'lavfast-flow'],
-            ['name' => 'Lavfast Flow', 'is_active' => true]
+            ['name' => "Lav'Fast Flow", 'is_active' => true]
         );
     }
 }

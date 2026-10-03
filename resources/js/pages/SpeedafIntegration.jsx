@@ -398,7 +398,7 @@ export default function SpeedafIntegration() {
                                 onChange={(e) =>
                                     set("sender_name", e.target.value)
                                 }
-                                placeholder="Lavfast Flow"
+                                placeholder="Lav'Fast Flow"
                             />
                         </Field>
                         <Field
@@ -705,7 +705,7 @@ export default function SpeedafIntegration() {
 
             <Card
                 title="Correspondance des statuts"
-                subtitle="Statut Speedaf → statut de livraison Lavfast (Paramètres → Statuts). « Ne rien changer » conserve le statut actuel."
+                subtitle="Statut Speedaf → statut de livraison Lav'Fast Flow (Paramètres → Statuts). « Ne rien changer » conserve le statut actuel."
             >
                 <div className="grid gap-x-6 gap-y-2 md:grid-cols-2">
                     {o.speedaf_statuses.map((s) => (

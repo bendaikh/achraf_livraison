@@ -222,7 +222,7 @@ class ConfirmationController extends Controller
 
         return response()->json([
             'order' => $this->detailPayload($order->fresh(['shop', 'confirmedByUser', 'confirmationActedByUser'])),
-            'message' => 'Commande annulée dans Lavfast Flow.',
+            'message' => "Commande annulée dans Lav'Fast Flow.",
         ]);
     }
 

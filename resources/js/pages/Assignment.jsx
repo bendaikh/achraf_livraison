@@ -342,7 +342,7 @@ export default function Assignment() {
                 <div>
                     <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">À attribuer</h1>
                     <p className="mt-1 text-sm font-medium text-slate-500">
-                        Commandes confirmées à affecter aux livreurs Lavfast.
+                        Commandes confirmées à affecter aux livreurs Lav'Fast Flow.
                     </p>
                 </div>
                 <button

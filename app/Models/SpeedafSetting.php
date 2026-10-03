@@ -66,7 +66,7 @@ class SpeedafSetting extends Model
     {
         $setting = static::query()->firstOrCreate(['company_id' => $companyId], [
             'environment' => 'uat',
-            'platform_source' => 'Lavfast Flow',
+            'platform_source' => "Lav'Fast Flow",
             'status_mapping' => SpeedafStatusMap::DEFAULT_MAPPING,
         ]);
         if (! $setting->webhook_token) {

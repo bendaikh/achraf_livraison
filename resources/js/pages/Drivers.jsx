@@ -38,7 +38,7 @@ export default function Drivers() {
         <div className="space-y-4">
             <PageHeader
                 title="Livreurs"
-                subtitle="Équipe locale Lavfast — accès connexion, missions, COD détenu et tarifs."
+                subtitle="Équipe locale Lav'Fast Flow — accès connexion, missions, COD détenu et tarifs."
                 actions={
                     <>
                         <Button variant="secondary" onClick={load}>

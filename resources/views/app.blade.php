@@ -4,7 +4,9 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
-        <title>{{ config('app.name', 'Lavafast Livraison') }}</title>
+        <title>{{ config('brand.title') }}</title>
+        <meta name="application-name" content="{{ config('brand.title') }}">
+        <meta name="apple-mobile-web-app-title" content="{{ config('brand.name') }}">
         @php
             $authUser = auth()->user();
             if ($authUser) {

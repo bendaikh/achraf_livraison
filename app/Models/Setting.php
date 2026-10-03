@@ -11,7 +11,7 @@ class Setting extends Model
     protected $casts = ['value' => 'array'];
 
     public const DEFAULTS = [
-        'company_name' => 'Lavafast Livraison',
+        'company_name' => "Lav'Fast Flow",
         'confirmation_alert_hours' => 24,
         'default_tariffs' => [
             'livraison' => 0, 'ramassage' => 0, 'depot_partenaire' => 0, 'retour' => 0, 'echange' => 0,

@@ -179,7 +179,7 @@ class OrderWorkflow
                     'delivery_postponed_until' => null,
                     'delivery_failure_reason' => null,
                 ]);
-                $order->appendHistory('delivery_assigned', sprintf('Affectée à %s par %s', $driver->name, $user?->name ?? 'Lavfast'), $user, [
+                $order->appendHistory('delivery_assigned', sprintf('Affectée à %s par %s', $driver->name, $user?->name ?? "Lav'Fast Flow"), $user, [
                     'driver_id' => $driver->id,
                     'driver_name' => $driver->name,
                 ]);

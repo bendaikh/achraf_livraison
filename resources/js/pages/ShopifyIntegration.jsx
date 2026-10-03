@@ -263,7 +263,7 @@ export default function ShopifyIntegration() {
                                 {connected
                                     ? status.shop.shop_domain
                                     : status?.configured
-                                      ? 'Autorisez LavFast via l’installation de l’app Shopify (OAuth).'
+                                      ? "Autorisez Lav'Fast Flow via l’installation de l’app Shopify (OAuth)."
                                       : 'Enregistrez d’abord les identifiants de l’app ci-dessus.'}
                             </p>
                             {connected ? (

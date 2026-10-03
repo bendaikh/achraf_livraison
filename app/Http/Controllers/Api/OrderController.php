@@ -90,7 +90,7 @@ class OrderController extends Controller
             'currency' => 'MAD',
             'source' => $data['source'] ?? 'Manuel',
         ]);
-        $order->appendHistory('received', 'Commande créée dans Lavfast Flow', $request->user());
+        $order->appendHistory('received', "Commande créée dans Lav'Fast Flow", $request->user());
         $order->save();
 
         if ($confirmation && $confirmation !== $order->confirmation_status) {

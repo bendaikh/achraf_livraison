@@ -4,7 +4,7 @@ namespace App\Services\Speedaf;
 
 /**
  * Speedaf tracking codes (PDF §5.2 "Delivery Tracking" and §5.3 "Problem Shipment List") and the
- * default mapping onto Lavfast delivery statuses (codes of delivery_statuses, configurable in
+ * default mapping onto Lav'Fast Flow delivery statuses (codes of delivery_statuses, configurable in
  * Intégrations → Speedaf). Problem sub-codes such as "IP05-02" fall back to their parent "IP05".
  */
 class SpeedafStatusMap

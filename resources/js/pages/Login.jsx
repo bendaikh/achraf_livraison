@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Lock, Mail, Truck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { homePathForUser } from '../navigation';
+import BrandLogo from '../components/layout/BrandLogo';
+import { pageTitle } from '../lib/brand';
 
 export default function Login() {
     const { login, isAuthenticated, loading, user } = useAuth();
@@ -10,6 +12,10 @@ export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+
+    useEffect(() => {
+        document.title = pageTitle('Connexion');
+    }, []);
     const [remember, setRemember] = useState(true);
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -48,8 +54,8 @@ export default function Login() {
                     <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-sky-500 text-white shadow-lg shadow-blue-500/30">
                         <Truck className="h-7 w-7" strokeWidth={2.2} />
                     </div>
-                    <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
-                        Lavafast
+                    <h1 className="flex justify-center text-center">
+                        <BrandLogo tone="light" size="lg" />
                     </h1>
                     <p className="mt-1.5 text-sm font-medium text-slate-500">
                         Connectez-vous pour accéder à la plateforme

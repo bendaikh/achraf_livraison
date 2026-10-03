@@ -4,6 +4,8 @@ import { modulesForUser, getActiveModule } from '../../navigation';
 import { useSidebar } from './SidebarContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWhatsAppUnread } from '../../contexts/WhatsAppUnreadContext';
+import BrandLogo, { BrandIcon } from './BrandLogo';
+import { BRAND } from '../../lib/brand';
 
 function ModuleItem({ mod, collapsed, onNavigate }) {
     const location = useLocation();
@@ -71,15 +73,10 @@ export default function Sidebar() {
                         compact ? 'justify-center px-2' : 'px-5',
                     ].join(' ')}
                 >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-400 to-blue-700 shadow-lg shadow-blue-900/40">
-                        <div className="h-4 w-4 rotate-12 rounded-sm bg-white/95 shadow-sm" />
-                    </div>
+                    <BrandIcon />
                     {!compact ? (
                         <div className="min-w-0 flex-1">
-                            <div className="truncate text-lg font-bold tracking-tight">Lavafast</div>
-                            <div className="truncate text-[11px] font-medium text-slate-400">
-                                {user?.is_livreur ? 'Espace livreur' : 'Livraison'}
-                            </div>
+                            <BrandLogo badge={user?.is_livreur ? 'Espace livreur' : null} />
                         </div>
                     ) : null}
                     <button
@@ -121,7 +118,7 @@ export default function Sidebar() {
                     </button>
                     {!compact ? (
                         <div className="px-1 text-center text-[10px] text-slate-500">
-                            lavafast-livraison v1.0.0 · © {new Date().getFullYear()}
+                            {BRAND.title} v{BRAND.version} · © {new Date().getFullYear()}
                         </div>
                     ) : null}
                 </div>

@@ -84,7 +84,7 @@ export default function DriverForm({ open, driver, onClose, onSaved, focusTariff
                     </div>
                     <div className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 p-3 sm:grid-cols-2">
                         <p className="text-[11px] text-slate-500 sm:col-span-2">
-                            Accès Lavfast Flow du livreur (rôle Livreur) : il se connecte avec cet e-mail pour voir « Mes missions ».
+                            Accès Lav'Fast Flow du livreur (rôle Livreur) : il se connecte avec cet e-mail pour voir « Mes missions ».
                         </p>
                         <Field label="E-mail de connexion *" error={errors.email}>
                             <Input type="email" value={form.email || ''} onChange={set('email')} required autoComplete="off" />

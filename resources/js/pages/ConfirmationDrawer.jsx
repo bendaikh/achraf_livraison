@@ -293,7 +293,7 @@ export default function ConfirmationDrawer({
                                             Note interne
                                         </label>
                                         <p className="mt-0.5 text-[11px] font-medium text-slate-400">
-                                            Privée Lavfast Flow — ne modifie pas Shopify
+                                            Privée Lav'Fast Flow — ne modifie pas Shopify
                                         </p>
                                         <textarea
                                             value={internalNote}

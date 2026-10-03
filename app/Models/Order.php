@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
- * Orders come from Shopify (shopify_shop_id) or are created manually in Lavfast Flow.
+ * Orders come from Shopify (shopify_shop_id) or are created manually in Lav'Fast Flow.
  *
  * Delivery status: `delivery_status` holds the *code* of a configurable DeliveryStatus
  * (Paramètres → Statuts de livraison). Behaviour is driven by the status category, never by

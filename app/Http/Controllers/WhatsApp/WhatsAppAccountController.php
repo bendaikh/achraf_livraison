@@ -362,7 +362,7 @@ class WhatsAppAccountController extends Controller
     {
         return response()->json([
             'title' => 'Migrer un numéro existant',
-            'warning' => 'Ne jamais déconnecter l’ancien prestataire avant d’avoir vérifié que le numéro peut être repris correctement dans Lavfast Flow.',
+            'warning' => 'Ne jamais déconnecter l’ancien prestataire avant d’avoir vérifié que le numéro peut être repris correctement dans Lav\'Fast Flow.',
             'steps' => [
                 'Vérifier le Business Portfolio actuel du numéro.',
                 'Vérifier le WhatsApp Business Account (WABA) actuel.',
@@ -370,7 +370,7 @@ class WhatsAppAccountController extends Controller
                 'Confirmer la propriété du numéro (OTP / ownership).',
                 'Vérifier les droits administrateur Meta Business.',
                 'Lire les conditions de migration imposées par Meta.',
-                'Connecter le numéro dans Lavfast Flow via Meta.',
+                "Connecter le numéro dans Lav'Fast Flow via Meta.",
                 'Valider la réception des webhooks et l’envoi d’un message test.',
                 'Seulement ensuite, couper l’ancien prestataire.',
             ],
