@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\OrderItemController;
 use App\Http\Controllers\Api\PreferenceController;
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\SavController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\SpeedafIntegrationController;
@@ -29,6 +30,20 @@ use Illuminate\Support\Facades\Route;
 */
 Route::middleware(['web', 'auth', 'admin.access'])->group(function () {
     Route::get('meta', [MetaController::class, 'show']);
+
+    // T7 — Retours / échanges (SAV)
+    Route::middleware('can:sav.manage')->group(function () {
+        Route::get('sav', [SavController::class, 'index']);
+        Route::get('sav/meta', [SavController::class, 'meta']);
+        Route::get('sav/custody', [SavController::class, 'custody']);
+        Route::get('sav/orders', [SavController::class, 'searchOrders']);
+        Route::get('sav/orders/{order}/prefill', [SavController::class, 'prefill']);
+        Route::post('sav', [SavController::class, 'store']);
+        Route::get('sav/{sav}', [SavController::class, 'show']);
+        Route::post('sav/{sav}/assign', [SavController::class, 'assign']);
+        Route::post('sav/{sav}/action', [SavController::class, 'action']);
+        Route::get('orders/{order}/sav', [SavController::class, 'forOrder']);
+    });
 
     // T9 — Clients
     Route::middleware('can:clients.view')->group(function () {

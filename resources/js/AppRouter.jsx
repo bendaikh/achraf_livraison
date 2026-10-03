@@ -13,6 +13,9 @@ const Centre = lazy(() => import('./pages/Centre'));
 const ConfirmationCentre = lazy(() => import('./pages/ConfirmationCentre'));
 const Users = lazy(() => import('./pages/Users'));
 const Clients = lazy(() => import('./pages/Clients'));
+const Sav = lazy(() => import('./pages/Sav'));
+const SavCustody = lazy(() => import('./pages/SavCustody'));
+const DriverSav = lazy(() => import('./pages/DriverSav'));
 const ClientDetail = lazy(() => import('./pages/ClientDetail'));
 const TeamPerformance = lazy(() => import('./pages/TeamPerformance'));
 const TeamCommissions = lazy(() => import('./pages/TeamCommissions'));
@@ -317,6 +320,30 @@ export default function AppRouter() {
                             <PermissionRoute ability="clients.view">
                                 <ClientDetail />
                             </PermissionRoute>
+                        }
+                    />
+                    <Route
+                        path="retours"
+                        element={
+                            <PermissionRoute ability="sav.manage">
+                                <Sav />
+                            </PermissionRoute>
+                        }
+                    />
+                    <Route
+                        path="retours/articles"
+                        element={
+                            <PermissionRoute ability="sav.manage">
+                                <SavCustody />
+                            </PermissionRoute>
+                        }
+                    />
+                    <Route
+                        path="mes-retours"
+                        element={
+                            <DriverRoute>
+                                <DriverSav />
+                            </DriverRoute>
                         }
                     />
                     <Route path="home" element={<HomeRedirect />} />

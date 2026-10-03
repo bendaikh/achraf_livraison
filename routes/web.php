@@ -6,6 +6,7 @@ use App\Http\Controllers\ConfirmationCentreController;
 use App\Http\Controllers\ConfirmationController;
 use App\Http\Controllers\ConfirmationStatusController;
 use App\Http\Controllers\DriverMissionController;
+use App\Http\Controllers\DriverSavController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Shopify\ShopifyAuthController;
 use App\Http\Controllers\Shopify\ShopifyIntegrationController;
@@ -54,6 +55,9 @@ Route::middleware('auth')->group(function () {
         Route::post('/missions/{order}/postpone', [DriverMissionController::class, 'postpone']);
         Route::post('/missions/{order}/no-answer', [DriverMissionController::class, 'noAnswer']);
         Route::post('/missions/{order}/fail', [DriverMissionController::class, 'fail']);
+        // T7 — Retours & échanges
+        Route::get('/sav', [DriverSavController::class, 'index']);
+        Route::post('/sav/{sav}/action', [DriverSavController::class, 'action']);
     });
 
     /*

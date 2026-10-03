@@ -13,6 +13,7 @@ import {
     LayoutGrid,
     UsersRound,
     Contact,
+    Undo2,
 } from 'lucide-react';
 
 export const modules = [
@@ -77,6 +78,18 @@ export const modules = [
         ],
     },
     {
+        id: 'retours',
+        label: 'Retours & échanges',
+        to: '/retours',
+        icon: Undo2,
+        roles: ['admin'],
+        ability: 'sav.manage',
+        tabs: [
+            { to: '/retours', label: 'Demandes', end: true },
+            { to: '/retours/articles', label: 'Articles chez les livreurs' },
+        ],
+    },
+    {
         id: 'livreurs',
         label: 'Livreurs',
         to: '/livreurs',
@@ -94,7 +107,10 @@ export const modules = [
         to: '/mes-missions',
         icon: Package,
         roles: ['livreur'],
-        tabs: [{ to: '/mes-missions', label: 'Missions du jour' }],
+        tabs: [
+            { to: '/mes-missions', label: 'Missions du jour' },
+            { to: '/mes-retours', label: 'Retours & échanges' },
+        ],
     },
     {
         id: 'cloture',

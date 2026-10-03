@@ -26,6 +26,8 @@ return [
         'clients.view' => ['label' => 'Voir les clients (fiche, historique, notes)', 'roles' => ['admin', 'user']],
         'clients.block' => ['label' => 'Bloquer / débloquer un client', 'roles' => ['admin']],
         'clients.groups' => ['label' => 'Gérer les groupes de clients', 'roles' => ['admin']],
+        'sav.manage' => ['label' => 'Créer et suivre les retours / échanges', 'roles' => ['admin', 'user']],
+        'sav.depot' => ['label' => 'Réceptionner au dépôt et clôturer les retours / échanges', 'roles' => ['admin']],
         'products.sync' => ['label' => 'Synchroniser le catalogue Shopify', 'roles' => ['admin']],
     ],
 ];

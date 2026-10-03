@@ -8,12 +8,13 @@ import { Alert, Button, Card, EmptyState, Spinner } from '../components/ui';
 import LocalAssignDrawer from '../components/orders/LocalAssignDrawer';
 import OrderItemsEditor from '../components/orders/OrderItemsEditor';
 import { BlockedClientAlert } from '../components/clients/ClientBadges';
+import OrderSavSection from '../components/sav/OrderSavSection';
 import { useAuth } from '../contexts/AuthContext';
 import { ColorBadge, StatusBadge } from '../components/ui/Badge';
 import StatusChangeForm from '../components/orders/StatusChangeForm';
 import SpeedafOrderCard from '../components/orders/SpeedafOrderCard';
 
-const HISTORY_KINDS = { confirmation: 'Confirmation', affectation: 'Affectation', produits: 'Produits', expedition: 'Expédition', appel: 'Appel', remise: 'Remise', agent: 'Agent' };
+const HISTORY_KINDS = { confirmation: 'Confirmation', affectation: 'Affectation', produits: 'Produits', expedition: 'Expédition', appel: 'Appel', remise: 'Remise', agent: 'Agent', sav: 'SAV' };
 
 function Info({ label, children }) {
     return (
@@ -109,6 +110,7 @@ export default function OrderDetail() {
                         <OrderItemsEditor order={order} onChanged={setOrder} />
                     </Card>
 
+                    {can('sav.manage') ? <OrderSavSection order={order} /> : null}
                     <Card title="Missions liées" bodyClassName="p-0">
                         {order.missions?.length ? (
                             <ul className="divide-y divide-slate-100">
