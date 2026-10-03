@@ -31,7 +31,7 @@ export default function ConfirmationCentre() {
     const [params] = useSearchParams();
     const navigate = useNavigate();
     const { can } = useAuth();
-    const queueQs = new URLSearchParams(Object.fromEntries([...params.entries()].filter(([k, v]) => ['filter', 'search'].includes(k) && v))).toString();
+    const queueQs = new URLSearchParams(Object.fromEntries([...params.entries()].filter(([k, v]) => ['filter', 'search', 'agent'].includes(k) && v))).toString();
 
     const [order, setOrder] = useState(null);
     const [sib, setSib] = useState(null);

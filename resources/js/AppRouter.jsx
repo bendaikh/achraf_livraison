@@ -1,7 +1,7 @@
 import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import AppLayout from './components/layout/AppLayout';
-import { GuestRoute, ProtectedRoute, AdminRoute, DriverRoute } from './components/auth/RouteGuards';
+import { GuestRoute, ProtectedRoute, AdminRoute, DriverRoute, PermissionRoute } from './components/auth/RouteGuards';
 import { useAuth } from './contexts/AuthContext';
 import { homePathForUser } from './navigation';
 
@@ -11,6 +11,10 @@ const OrderDetail = lazy(() => import('./pages/OrderDetail'));
 const Products = lazy(() => import('./pages/Products'));
 const Centre = lazy(() => import('./pages/Centre'));
 const ConfirmationCentre = lazy(() => import('./pages/ConfirmationCentre'));
+const Users = lazy(() => import('./pages/Users'));
+const TeamPerformance = lazy(() => import('./pages/TeamPerformance'));
+const TeamCommissions = lazy(() => import('./pages/TeamCommissions'));
+const TeamServices = lazy(() => import('./pages/TeamServices'));
 const Missions = lazy(() => import('./pages/Missions'));
 const Closing = lazy(() => import('./pages/Closing'));
 const Settings = lazy(() => import('./pages/Settings'));
@@ -67,9 +71,9 @@ export default function AppRouter() {
                     <Route
                         index
                         element={
-                            <AdminRoute>
+                            <PermissionRoute ability="dashboard.view">
                                 <Dashboard />
-                            </AdminRoute>
+                            </PermissionRoute>
                         }
                     />
                     <Route path="profil" element={<Profile />} />
@@ -92,17 +96,17 @@ export default function AppRouter() {
                     <Route
                         path="centre"
                         element={
-                            <AdminRoute>
+                            <PermissionRoute ability="dashboard.view">
                                 <Centre />
-                            </AdminRoute>
+                            </PermissionRoute>
                         }
                     />
                     <Route
                         path="produits"
                         element={
-                            <AdminRoute>
+                            <PermissionRoute ability="products.view">
                                 <Products />
-                            </AdminRoute>
+                            </PermissionRoute>
                         }
                     />
                     <Route
@@ -124,25 +128,25 @@ export default function AppRouter() {
                     <Route
                         path="a-attribuer"
                         element={
-                            <AdminRoute>
+                            <PermissionRoute ability="drivers.manage">
                                 <Assignment />
-                            </AdminRoute>
+                            </PermissionRoute>
                         }
                     />
                     <Route
                         path="livreurs"
                         element={
-                            <AdminRoute>
+                            <PermissionRoute ability="drivers.manage">
                                 <Drivers />
-                            </AdminRoute>
+                            </PermissionRoute>
                         }
                     />
                     <Route
                         path="missions"
                         element={
-                            <AdminRoute>
+                            <PermissionRoute ability="drivers.manage">
                                 <Missions />
-                            </AdminRoute>
+                            </PermissionRoute>
                         }
                     />
                     <Route
@@ -156,97 +160,121 @@ export default function AppRouter() {
                     <Route
                         path="whatsapp/comptes"
                         element={
-                            <AdminRoute>
+                            <PermissionRoute ability="settings.manage">
                                 <WhatsAppAccounts />
-                            </AdminRoute>
+                            </PermissionRoute>
                         }
                     />
                     <Route
                         path="whatsapp/templates"
                         element={
-                            <AdminRoute>
+                            <PermissionRoute ability="whatsapp.access">
                                 <WhatsAppTemplates />
-                            </AdminRoute>
+                            </PermissionRoute>
                         }
                     />
                     <Route
                         path="whatsapp/reponses-rapides"
                         element={
-                            <AdminRoute>
+                            <PermissionRoute ability="whatsapp.access">
                                 <WhatsAppQuickReplies />
-                            </AdminRoute>
+                            </PermissionRoute>
                         }
                     />
                     <Route
                         path="whatsapp"
                         element={
-                            <AdminRoute>
+                            <PermissionRoute ability="whatsapp.access">
                                 <WhatsAppInbox />
-                            </AdminRoute>
+                            </PermissionRoute>
                         }
                     />
                     <Route
                         path="cloture"
                         element={
-                            <AdminRoute>
+                            <PermissionRoute ability="closings.manage">
                                 <Closing />
-                            </AdminRoute>
+                            </PermissionRoute>
                         }
                     />
                     <Route
                         path="utilisateurs"
                         element={
-                            <AdminRoute>
-                                <PlaceholderPage />
-                            </AdminRoute>
+                            <PermissionRoute ability="users.manage">
+                                <Users />
+                            </PermissionRoute>
                         }
                     />
                     <Route
                         path="parametres"
                         element={
-                            <AdminRoute>
+                            <PermissionRoute ability="settings.manage">
                                 <Settings />
-                            </AdminRoute>
+                            </PermissionRoute>
                         }
                     />
                     <Route
                         path="parametres/statuts"
                         element={
-                            <AdminRoute>
+                            <PermissionRoute ability="settings.manage">
                                 <StatusSettings />
-                            </AdminRoute>
+                            </PermissionRoute>
                         }
                     />
                     <Route
                         path="parametres/partenaires"
                         element={
-                            <AdminRoute>
+                            <PermissionRoute ability="settings.manage">
                                 <LogisticsPartners />
-                            </AdminRoute>
+                            </PermissionRoute>
                         }
                     />
                     <Route
                         path="integrations/ozone"
                         element={
-                            <AdminRoute>
+                            <PermissionRoute ability="settings.manage">
                                 <PlaceholderPage />
-                            </AdminRoute>
+                            </PermissionRoute>
                         }
                     />
                     <Route
                         path="integrations/speedaf"
                         element={
-                            <AdminRoute>
+                            <PermissionRoute ability="settings.manage">
                                 <SpeedafIntegration />
-                            </AdminRoute>
+                            </PermissionRoute>
                         }
                     />
                     <Route
                         path="integrations/shopify"
                         element={
-                            <AdminRoute>
+                            <PermissionRoute ability="settings.manage">
                                 <ShopifyIntegration />
+                            </PermissionRoute>
+                        }
+                    />
+                    <Route
+                        path="equipe"
+                        element={
+                            <AdminRoute>
+                                <TeamPerformance />
                             </AdminRoute>
+                        }
+                    />
+                    <Route
+                        path="equipe/commissions"
+                        element={
+                            <AdminRoute>
+                                <TeamCommissions />
+                            </AdminRoute>
+                        }
+                    />
+                    <Route
+                        path="parametres/equipe"
+                        element={
+                            <PermissionRoute ability="users.manage">
+                                <TeamServices />
+                            </PermissionRoute>
                         }
                     />
                     <Route path="home" element={<HomeRedirect />} />

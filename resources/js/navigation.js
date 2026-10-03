@@ -11,6 +11,7 @@ import {
     Package,
     Boxes,
     LayoutGrid,
+    UsersRound,
 } from 'lucide-react';
 
 export const modules = [
@@ -20,6 +21,7 @@ export const modules = [
         to: '/',
         icon: LayoutDashboard,
         roles: ['admin'],
+        ability: 'dashboard.view',
         tabs: [{ to: '/', label: 'Vue générale', end: true }],
     },
     {
@@ -28,6 +30,7 @@ export const modules = [
         to: '/centre',
         icon: LayoutGrid,
         roles: ['admin'],
+        ability: 'dashboard.view',
         tabs: [{ to: '/centre', label: 'Centre de travail' }],
     },
     {
@@ -44,6 +47,7 @@ export const modules = [
         to: '/produits',
         icon: Boxes,
         roles: ['admin'],
+        ability: 'products.view',
         tabs: [{ to: '/produits', label: 'Catalogue Shopify' }],
     },
     {
@@ -54,7 +58,7 @@ export const modules = [
         roles: ['admin'],
         tabs: [
             { to: '/confirmation', label: 'File de confirmation' },
-            { to: '/a-attribuer', label: 'À attribuer' },
+            { to: '/a-attribuer', label: 'À attribuer', ability: 'drivers.manage' },
         ],
     },
     {
@@ -63,6 +67,7 @@ export const modules = [
         to: '/livreurs',
         icon: Bike,
         roles: ['admin'],
+        ability: 'drivers.manage',
         tabs: [
             { to: '/livreurs', label: 'Liste des livreurs' },
             { to: '/missions', label: 'Missions' },
@@ -82,6 +87,7 @@ export const modules = [
         to: '/cloture',
         icon: CalendarCheck,
         roles: ['admin'],
+        ability: 'closings.manage',
         tabs: [{ to: '/cloture', label: 'Clôture du jour' }],
     },
     {
@@ -91,9 +97,10 @@ export const modules = [
         icon: MessageCircle,
         badgeKey: 'whatsapp',
         roles: ['admin'],
+        ability: 'whatsapp.access',
         tabs: [
             { to: '/whatsapp', label: 'Messagerie', end: true },
-            { to: '/whatsapp/comptes', label: 'Comptes / Numéros' },
+            { to: '/whatsapp/comptes', label: 'Comptes / Numéros', ability: 'settings.manage' },
             { to: '/whatsapp/templates', label: 'Templates' },
             { to: '/whatsapp/reponses-rapides', label: 'Réponses rapides' },
         ],
@@ -104,10 +111,22 @@ export const modules = [
         to: '/integrations/ozone',
         icon: Plug,
         roles: ['admin'],
+        ability: 'settings.manage',
         tabs: [
             { to: '/integrations/ozone', label: 'Ozone Delivery' },
             { to: '/integrations/speedaf', label: 'Speedaf' },
             { to: '/integrations/shopify', label: 'Shopify' },
+        ],
+    },
+    {
+        id: 'equipe',
+        label: 'Équipe',
+        to: '/equipe',
+        icon: UsersRound,
+        roles: ['admin'],
+        tabs: [
+            { to: '/equipe', label: 'Performance', end: true },
+            { to: '/equipe/commissions', label: 'Commissions' },
         ],
     },
     {
@@ -116,6 +135,7 @@ export const modules = [
         to: '/utilisateurs',
         icon: Users,
         roles: ['admin'],
+        ability: 'users.manage',
         tabs: [{ to: '/utilisateurs', label: 'Liste des utilisateurs' }],
     },
     {
@@ -124,10 +144,12 @@ export const modules = [
         to: '/parametres',
         icon: Settings,
         roles: ['admin'],
+        ability: 'settings.manage',
         tabs: [
             { to: '/parametres', label: 'Société & tarifs', end: true },
             { to: '/parametres/statuts', label: 'Statuts de livraison' },
             { to: '/parametres/partenaires', label: 'Partenaires logistiques' },
+            { to: '/parametres/equipe', label: 'Équipe & rémunération' },
         ],
     },
 ];
@@ -139,7 +161,10 @@ export function modulesForUser(user) {
     if (user.is_livreur || user.role === 'livreur') {
         return modules.filter((mod) => (mod.roles || []).includes('livreur'));
     }
-    return modules.filter((mod) => (mod.roles || []).includes('admin'));
+    const can = (ability) => user.role === 'superadmin' || (user.permissions || []).includes(ability);
+    return modules
+        .filter((mod) => (mod.roles || []).includes('admin') && (!mod.ability || can(mod.ability)))
+        .map((mod) => (mod.tabs.some((t) => t.ability) ? { ...mod, tabs: mod.tabs.filter((t) => !t.ability || can(t.ability)) } : mod));
 }
 
 export function getActiveModule(pathname, user) {
@@ -167,6 +192,9 @@ export function getActiveModule(pathname, user) {
 export function homePathForUser(user) {
     if (user?.is_livreur || user?.role === 'livreur') {
         return '/mes-missions';
+    }
+    if (user && user.role !== 'superadmin' && !(user.permissions || []).includes('dashboard.view')) {
+        return '/confirmation';
     }
     return '/';
 }

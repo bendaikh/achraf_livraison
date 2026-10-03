@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Support\Permissions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,6 +22,11 @@ class AuthenticatedSessionController extends Controller
             throw ValidationException::withMessages([
                 'email' => __('Identifiants incorrects.'),
             ]);
+        }
+
+        if ($request->user()->is_active === false) {
+            Auth::guard('web')->logout();
+            throw ValidationException::withMessages(['email' => 'Ce compte est désactivé. Contactez votre responsable.']);
         }
 
         $request->session()->regenerate();
@@ -65,7 +71,7 @@ class AuthenticatedSessionController extends Controller
             'role_label' => $user->roleLabel(),
             'is_livreur' => $user->isLivreur(),
             'is_admin' => $user->isAdmin(),
-            'permissions' => \App\Support\Permissions::forUser($user),
+            'permissions' => Permissions::forUser($user),
             'driver' => $user->driver ? [
                 'id' => $user->driver->id,
                 'name' => $user->driver->name,

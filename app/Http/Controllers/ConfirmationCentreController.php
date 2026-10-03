@@ -24,9 +24,10 @@ class ConfirmationCentreController extends Controller
     public function __construct(private readonly ConfirmationStatusService $statuses) {}
 
     /** Same filter + search + order as GET /api/confirmation/orders. */
-    public static function queueQuery(ConfirmationStatusService $statuses, string $filter, string $search = ''): Builder
+    public static function queueQuery(ConfirmationStatusService $statuses, string $filter, string $search = '', string $agent = '', ?int $me = null): Builder
     {
         $q = Order::query();
+        self::applyAgentFilter($q, $agent, $me);
         $statuses->applyFilter($q, $filter !== '' && $filter !== 'all' ? $filter : ConfirmationStatus::defaultCode());
         if ($search !== '') {
             $q->where(function ($w) use ($search) {
@@ -38,6 +39,18 @@ class ConfirmationCentreController extends Controller
         }
 
         return $q->orderByRaw('COALESCE(shopify_created_at, created_at) DESC')->orderByDesc('id');
+    }
+
+    /** agent filter: '' (tous) | me | none | user id */
+    public static function applyAgentFilter(Builder $q, string $agent, ?int $me): void
+    {
+        match (true) {
+            $agent === '' => null,
+            $agent === 'me' => $q->where('assigned_user_id', $me ?? 0),
+            $agent === 'none' => $q->whereNull('assigned_user_id'),
+            ctype_digit($agent) => $q->where('assigned_user_id', (int) $agent),
+            default => null,
+        };
     }
 
     /** GET /api/confirmation/stats — real counters (today + comparisons only when history exists). */
@@ -86,7 +99,7 @@ class ConfirmationCentreController extends Controller
     /** GET /api/confirmation/orders/{order}/siblings?filter=&search= — previous / next in the queue. */
     public function siblings(Request $request, Order $order): JsonResponse
     {
-        $ids = self::queueQuery($this->statuses, trim((string) $request->query('filter', '')), trim((string) $request->query('search', '')))
+        $ids = self::queueQuery($this->statuses, trim((string) $request->query('filter', '')), trim((string) $request->query('search', '')), (string) $request->query('agent', ''), $request->user()->id)
             ->pluck('id')->all();
         $pos = array_search($order->id, $ids, true);
 

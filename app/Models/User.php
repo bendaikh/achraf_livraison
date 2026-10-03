@@ -6,6 +6,7 @@ namespace App\Models;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -34,7 +35,35 @@ class User extends Authenticatable
         'password',
         'role',
         'company_id',
+        'phone',
+        'service_id',
+        'manager_id',
+        'is_active',
+        'commission_mode',
+        'commission_value',
+        'commission_trigger',
     ];
+
+    public function service(): BelongsTo
+    {
+        return $this->belongsTo(Service::class);
+    }
+
+    public function manager(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'manager_id');
+    }
+
+    public function commissions(): HasMany
+    {
+        return $this->hasMany(AgentCommission::class);
+    }
+
+    /** Commission trigger in force (explicit or the mode's default). */
+    public function commissionTrigger(): ?string
+    {
+        return $this->commission_trigger ?: config('commissions.modes.'.($this->commission_mode ?: 'none').'.default_trigger');
+    }
 
     public function company(): BelongsTo
     {
@@ -64,7 +93,7 @@ class User extends Authenticatable
             self::ROLE_SUPERADMIN => 'Super Admin',
             self::ROLE_ADMIN => 'Admin',
             self::ROLE_LIVREUR => 'Livreur',
-            default => 'Utilisateur',
+            default => 'Agent',
         };
     }
 
@@ -103,6 +132,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
+            'commission_value' => 'float',
         ];
     }
 }

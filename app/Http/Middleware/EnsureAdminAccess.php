@@ -12,6 +12,10 @@ class EnsureAdminAccess
     {
         $user = $request->user();
 
+        if ($user && $user->is_active === false) {
+            return response()->json(['message' => 'Ce compte est désactivé.'], 403);
+        }
+
         if (! $user || $user->isLivreur()) {
             if ($request->expectsJson()) {
                 return response()->json(['message' => 'Accès réservé à l’administration.'], 403);

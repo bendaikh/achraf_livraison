@@ -7,6 +7,12 @@ use App\Http\Resources\OrderResource;
 use App\Models\ConfirmationStatus;
 use App\Models\DeliveryStatus;
 use App\Models\Order;
+use App\Models\OrderStatusHistory;
+use App\Models\SpeedafShipment;
+use App\Models\User;
+use App\Services\Carriers\CarrierRegistry;
+use App\Services\Catalog\CatalogLookup;
+use App\Services\CentreService;
 use App\Services\OrderWorkflow;
 use App\Support\Catalog;
 use Illuminate\Http\Request;
@@ -59,19 +65,19 @@ class OrderController extends Controller
         }
         // Centre shortcuts
         if ($request->boolean('out_of_stock')) {
-            $q->whereIn('id', app(\App\Services\CentreService::class)->outOfStockOrderIds() ?: [0]);
+            $q->whereIn('id', app(CentreService::class)->outOfStockOrderIds() ?: [0]);
         }
         if ($request->boolean('late')) {
-            $q->whereIn('id', app(\App\Services\CentreService::class)->lateQuery()->select('id'));
+            $q->whereIn('id', app(CentreService::class)->lateQuery()->select('id'));
         }
         if ($request->filled('speedaf')) {
-            $active = fn ($w) => $w->where('state', '!=', \App\Models\SpeedafShipment::STATE_CANCELLED);
+            $active = fn ($w) => $w->where('state', '!=', SpeedafShipment::STATE_CANCELLED);
             $request->query('speedaf') === '1'
                 ? $q->whereHas('speedafShipments', $active)
                 : $q->whereDoesntHave('speedafShipments', $active);
         }
         if ($request->filled('carrier')) {
-            app(\App\Services\Carriers\CarrierRegistry::class)->applyFilter($q, (string) $request->query('carrier'));
+            app(CarrierRegistry::class)->applyFilter($q, (string) $request->query('carrier'));
         }
         if ($request->filled('payment_method')) {
             $request->query('payment_method') === 'paye'
@@ -109,9 +115,43 @@ class OrderController extends Controller
         $perPage = min(max($request->integer('per_page', 25), 5), 100);
 
         $page = $q->orderByDesc('created_at')->orderByDesc('id')->paginate($perPage);
-        app(\App\Services\Catalog\CatalogLookup::class)->prime($page->getCollection());
+        app(CatalogLookup::class)->prime($page->getCollection());
 
         return OrderResource::collection($page);
+    }
+
+    /** POST /api/orders/assign-agent {order_ids, user_id|null} — confirmation agent (bulk). */
+    public function assignAgent(Request $request)
+    {
+        $data = $request->validate([
+            'order_ids' => ['required', 'array', 'min:1', 'max:500'],
+            'order_ids.*' => ['integer'],
+            'user_id' => ['nullable', 'integer', 'exists:users,id'],
+        ]);
+        $agent = $data['user_id'] ? User::query()->find($data['user_id']) : null;
+        if ($agent && ($agent->isLivreur() || $agent->is_active === false)) {
+            return response()->json(['message' => 'Cet utilisateur ne peut pas recevoir de commandes.'], 422);
+        }
+        $user = $request->user();
+        $n = 0;
+        foreach (Order::query()->whereIn('id', $data['order_ids'])->with('assignedUser:id,name')->get() as $order) {
+            if ((int) $order->assigned_user_id === (int) ($agent?->id)) {
+                continue;
+            }
+            $from = $order->assignedUser?->name;
+            $order->assigned_user_id = $agent?->id;
+            $label = $agent ? 'Assignée à '.$agent->name.($from ? " (avant : {$from})" : '') : 'Agent retiré'.($from ? " ({$from})" : '');
+            $order->appendHistory('agent_assigned', $label, $user);
+            $order->save();
+            OrderStatusHistory::create([
+                'order_id' => $order->id, 'kind' => 'agent', 'status_code' => $agent ? 'agent_assigned' : 'agent_removed',
+                'status_name' => $agent ? 'Agent assigné' : 'Agent retiré', 'status_color' => '#0891b2',
+                'data' => ['from' => $from, 'to' => $agent?->name], 'note' => $label, 'user_id' => $user->id,
+            ]);
+            $n++;
+        }
+
+        return response()->json(['message' => $agent ? "{$n} commande(s) assignée(s) à {$agent->name}." : "Agent retiré de {$n} commande(s).", 'updated' => $n]);
     }
 
     public function show(Order $order)

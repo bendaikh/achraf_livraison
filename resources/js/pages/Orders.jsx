@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Bike, ChevronLeft, ChevronRight, Plus, RotateCcw, Search, SlidersHorizontal, X } from 'lucide-react';
+import { Bike, ChevronLeft, ChevronRight, Plus, RotateCcw, Search, SlidersHorizontal, UserCheck, X } from 'lucide-react';
 import api, { errorMessage } from '../lib/api';
 import { useMeta } from '../context/MetaContext';
 import useUserPreference from '../hooks/useUserPreference';
@@ -12,6 +12,7 @@ import CarrierBulkActions from '../components/orders/CarrierBulkActions';
 import QuickShip from '../components/orders/QuickShip';
 import useCarriers from '../hooks/useCarriers';
 import LocalAssignDrawer from '../components/orders/LocalAssignDrawer';
+import AgentAssignDrawer from '../components/orders/AgentAssignDrawer';
 import { useAuth } from '../contexts/AuthContext';
 import { COLUMN_PREFS_KEY, DEFAULT_COLUMN_PREFS, ORDER_COLUMNS, ProductPhoto, renderCell } from '../components/orders/orderColumns';
 
@@ -40,6 +41,7 @@ export default function Orders() {
     const selection = useSelection();
     const { can } = useAuth();
     const [assigning, setAssigning] = useState(false);
+    const [assigningAgent, setAssigningAgent] = useState(false);
     const { carriers } = useCarriers();
     const [cityInput, setCityInput] = useState(params.get('city') || '');
     const [showAdvanced, setShowAdvanced] = useState(() => ADVANCED_KEYS.some((k) => params.get(k)));
@@ -268,6 +270,11 @@ export default function Orders() {
                                 <Bike className="h-3.5 w-3.5" /> Affecter à livraison locale
                             </Button>
                         ) : null}
+                        {can('orders.assign_agent') ? (
+                            <Button size="sm" variant="secondary" onClick={() => setAssigningAgent(true)}>
+                                <UserCheck className="h-3.5 w-3.5" /> Assigner à un agent
+                            </Button>
+                        ) : null}
                         <CarrierBulkActions ids={selection.selectedIds} onDone={load} />
                         <Button size="sm" variant="ghost" onClick={selection.clear}>
                             Désélectionner
@@ -390,6 +397,7 @@ export default function Orders() {
                 </>
             )}
 
+            <AgentAssignDrawer open={assigningAgent} onClose={() => setAssigningAgent(false)} orderIds={selection.selectedIds} onDone={load} />
             <LocalAssignDrawer open={assigning} onClose={() => setAssigning(false)} orderIds={selection.selectedIds} onDone={load} />
 
             <OrderForm

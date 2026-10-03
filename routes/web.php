@@ -89,14 +89,14 @@ Route::middleware('auth')->group(function () {
     /*
     | Future Paramètres → Statuts de confirmation (API ready, UI later).
     */
-    Route::prefix('api/settings/confirmation-statuses')->group(function () {
+    Route::middleware('can:settings.manage')->prefix('api/settings/confirmation-statuses')->group(function () {
         Route::get('/', [ConfirmationStatusController::class, 'settingsIndex']);
         Route::post('/', [ConfirmationStatusController::class, 'store']);
         Route::put('/{confirmationStatus}', [ConfirmationStatusController::class, 'update']);
         Route::post('/reorder', [ConfirmationStatusController::class, 'reorder']);
     });
 
-    Route::prefix('api/integrations/shopify')->group(function () {
+    Route::middleware('can:settings.manage')->prefix('api/integrations/shopify')->group(function () {
         Route::get('/', [ShopifyIntegrationController::class, 'status']);
         Route::post('/credentials', [ShopifyIntegrationController::class, 'saveCredentials']);
         Route::post('/connect', [ShopifyIntegrationController::class, 'connect']);
@@ -105,7 +105,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/orders', [ShopifyIntegrationController::class, 'orders']);
     });
 
-    Route::prefix('api/whatsapp')->group(function () {
+    Route::middleware('can:whatsapp.access')->prefix('api/whatsapp')->group(function () {
         Route::get('/unread-count', [WhatsAppConversationController::class, 'unreadCount']);
 
         Route::get('/accounts', [WhatsAppAccountController::class, 'index']);

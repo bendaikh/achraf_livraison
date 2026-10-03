@@ -2,7 +2,12 @@
 
 namespace App\Providers;
 
+use App\Models\Order;
 use App\Models\User;
+use App\Observers\OrderCommissionObserver;
+use App\Services\Carriers\CarrierRegistry;
+use App\Services\Catalog\CatalogLookup;
+use App\Services\Team\CommissionService;
 use App\Support\Permissions;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -15,8 +20,9 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         // One catalog cache per request (order lines ↔ synced Shopify products).
-        $this->app->scoped(\App\Services\Catalog\CatalogLookup::class);
-        $this->app->singleton(\App\Services\Carriers\CarrierRegistry::class);
+        $this->app->scoped(CatalogLookup::class);
+        $this->app->singleton(CarrierRegistry::class);
+        $this->app->scoped(CommissionService::class);
     }
 
     /**
@@ -24,6 +30,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Order::observe(OrderCommissionObserver::class);
         // Role-based abilities (config/permissions.php); unknown abilities fall through to normal gates.
         Gate::before(function (User $user, string $ability) {
             return Permissions::isKnown($ability) ? Permissions::allows($user, $ability) : null;

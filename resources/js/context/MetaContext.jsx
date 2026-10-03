@@ -52,6 +52,7 @@ export function MetaProvider({ children }) {
             defaultTariffs: m.default_tariffs || null,
             currentUser: m.current_user || null,
             users: m.users || [],
+            services: m.services || [],
             confirmationMap: byValue(m.confirmation_statuses),
             missionTypeMap: byValue(m.mission_types),
             missionStatusMap: byValue(m.mission_statuses),

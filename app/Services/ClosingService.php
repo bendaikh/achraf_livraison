@@ -6,6 +6,7 @@ use App\Models\Closing;
 use App\Models\Driver;
 use App\Models\Mission;
 use App\Models\Order;
+use App\Services\Team\CommissionService;
 use App\Support\CurrentUser;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -88,6 +89,9 @@ class ClosingService
             ]);
             // cod_remitted_at keeps the existing "COD remis" flag in sync with the closing.
             $this->unclosedDeliveredOrders($driver->id)->update(['closing_id' => $closing->id, 'cod_remitted_at' => $closing->closed_at]);
+            // Agent commissions with the « livraison + clôture » trigger (mass update → no model events).
+            $commissions = app(CommissionService::class);
+            Order::query()->where('closing_id', $closing->id)->get()->each(fn ($o) => $commissions->syncOrder($o));
             $this->unclosedCompletedMissions($driver->id)->update(['closing_id' => $closing->id]);
 
             return $closing;

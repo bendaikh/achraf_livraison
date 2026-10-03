@@ -12,11 +12,14 @@ use App\Http\Controllers\Api\MetaController;
 use App\Http\Controllers\Api\MissionController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\OrderItemController;
-use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\PreferenceController;
+use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\SpeedafIntegrationController;
 use App\Http\Controllers\Api\SpeedafOrderController;
+use App\Http\Controllers\Api\TeamController;
+use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -25,34 +28,35 @@ use Illuminate\Support\Facades\Route;
 */
 Route::middleware(['web', 'auth', 'admin.access'])->group(function () {
     Route::get('meta', [MetaController::class, 'show']);
-    Route::get('dashboard', [DashboardController::class, 'show']);
-    Route::get('centre', [CentreController::class, 'show']);
+    Route::get('dashboard', [DashboardController::class, 'show'])->middleware('can:dashboard.view');
+    Route::get('centre', [CentreController::class, 'show'])->middleware('can:dashboard.view');
 
     Route::get('settings', [SettingsController::class, 'show']);
-    Route::put('settings', [SettingsController::class, 'update']);
+    Route::put('settings', [SettingsController::class, 'update'])->middleware('can:settings.manage');
 
     // Paramètres → Statuts de livraison
     Route::get('delivery-statuses', [DeliveryStatusController::class, 'index']);
-    Route::post('delivery-statuses', [DeliveryStatusController::class, 'store']);
-    Route::put('delivery-statuses/{deliveryStatus}', [DeliveryStatusController::class, 'update']);
-    Route::delete('delivery-statuses/{deliveryStatus}', [DeliveryStatusController::class, 'destroy']);
-    Route::put('delivery-statuses/{deliveryStatus}/transitions', [DeliveryStatusController::class, 'updateTransitions']);
+    Route::post('delivery-statuses', [DeliveryStatusController::class, 'store'])->middleware('can:settings.manage');
+    Route::put('delivery-statuses/{deliveryStatus}', [DeliveryStatusController::class, 'update'])->middleware('can:settings.manage');
+    Route::delete('delivery-statuses/{deliveryStatus}', [DeliveryStatusController::class, 'destroy'])->middleware('can:settings.manage');
+    Route::put('delivery-statuses/{deliveryStatus}/transitions', [DeliveryStatusController::class, 'updateTransitions'])->middleware('can:settings.manage');
     Route::get('status-transitions', [DeliveryStatusController::class, 'transitions']);
 
     // Paramètres → Partenaires logistiques (scoped to the user's company)
     Route::get('logistics-partners', [LogisticsPartnerController::class, 'index']);
-    Route::post('logistics-partners', [LogisticsPartnerController::class, 'store']);
-    Route::put('logistics-partners/{logisticsPartner}', [LogisticsPartnerController::class, 'update']);
-    Route::delete('logistics-partners/{logisticsPartner}', [LogisticsPartnerController::class, 'destroy']);
-    Route::post('logistics-partners/{logisticsPartner}/deactivate', [LogisticsPartnerController::class, 'deactivate']);
-    Route::post('logistics-partners/{logisticsPartner}/activate', [LogisticsPartnerController::class, 'activate']);
-    Route::post('logistics-partners/{logisticsPartner}/favorite', [LogisticsPartnerController::class, 'favorite']);
+    Route::post('logistics-partners', [LogisticsPartnerController::class, 'store'])->middleware('can:settings.manage');
+    Route::put('logistics-partners/{logisticsPartner}', [LogisticsPartnerController::class, 'update'])->middleware('can:settings.manage');
+    Route::delete('logistics-partners/{logisticsPartner}', [LogisticsPartnerController::class, 'destroy'])->middleware('can:settings.manage');
+    Route::post('logistics-partners/{logisticsPartner}/deactivate', [LogisticsPartnerController::class, 'deactivate'])->middleware('can:settings.manage');
+    Route::post('logistics-partners/{logisticsPartner}/activate', [LogisticsPartnerController::class, 'activate'])->middleware('can:settings.manage');
+    Route::post('logistics-partners/{logisticsPartner}/favorite', [LogisticsPartnerController::class, 'favorite'])->middleware('can:settings.manage');
 
     // Commandes → Affecter à livraison locale (bulk + fiche commande)
     Route::get('local-delivery/drivers', [LocalAssignmentController::class, 'drivers']);
     Route::post('local-delivery/assign', [LocalAssignmentController::class, 'assign'])->middleware('can:orders.assign_driver');
 
     Route::get('orders', [OrderController::class, 'index']);
+    Route::post('orders/assign-agent', [OrderController::class, 'assignAgent'])->middleware('can:orders.assign_agent');
     Route::post('orders', [OrderController::class, 'store']);
     Route::get('orders/{order}', [OrderController::class, 'show']);
     Route::put('orders/{order}', [OrderController::class, 'update']);
@@ -75,26 +79,26 @@ Route::middleware(['web', 'auth', 'admin.access'])->group(function () {
 
     Route::get('drivers', [DriverController::class, 'index']);
     Route::get('drivers/active', [DriverController::class, 'active']);
-    Route::post('drivers', [DriverController::class, 'store']);
+    Route::post('drivers', [DriverController::class, 'store'])->middleware('can:drivers.manage');
     Route::get('drivers/{driver}', [DriverController::class, 'show']);
-    Route::put('drivers/{driver}', [DriverController::class, 'update']);
+    Route::put('drivers/{driver}', [DriverController::class, 'update'])->middleware('can:drivers.manage');
 
     Route::get('missions', [MissionController::class, 'index']);
-    Route::post('missions', [MissionController::class, 'store']);
+    Route::post('missions', [MissionController::class, 'store'])->middleware('can:drivers.manage');
     Route::get('missions/{mission}', [MissionController::class, 'show']);
-    Route::put('missions/{mission}', [MissionController::class, 'update']);
-    Route::post('missions/{mission}/status', [MissionController::class, 'changeStatus']);
+    Route::put('missions/{mission}', [MissionController::class, 'update'])->middleware('can:drivers.manage');
+    Route::post('missions/{mission}/status', [MissionController::class, 'changeStatus'])->middleware('can:drivers.manage');
 
     // Per-user UI preferences (current user = auth user, else user #1).
     Route::get('preferences/{key}', [PreferenceController::class, 'show']);
     Route::put('preferences/{key}', [PreferenceController::class, 'update']);
 
     // Intégrations → Speedaf (settings of the user's company) + Commandes actions
-    Route::get('integrations/speedaf', [SpeedafIntegrationController::class, 'show']);
-    Route::put('integrations/speedaf', [SpeedafIntegrationController::class, 'update']);
-    Route::post('integrations/speedaf/test', [SpeedafIntegrationController::class, 'test']);
-    Route::post('integrations/speedaf/webhook/subscribe', [SpeedafIntegrationController::class, 'subscribeWebhook']);
-    Route::post('integrations/speedaf/sync', [SpeedafIntegrationController::class, 'sync']);
+    Route::get('integrations/speedaf', [SpeedafIntegrationController::class, 'show'])->middleware('can:settings.manage');
+    Route::put('integrations/speedaf', [SpeedafIntegrationController::class, 'update'])->middleware('can:settings.manage');
+    Route::post('integrations/speedaf/test', [SpeedafIntegrationController::class, 'test'])->middleware('can:settings.manage');
+    Route::post('integrations/speedaf/webhook/subscribe', [SpeedafIntegrationController::class, 'subscribeWebhook'])->middleware('can:settings.manage');
+    Route::post('integrations/speedaf/sync', [SpeedafIntegrationController::class, 'sync'])->middleware('can:settings.manage');
     Route::get('carriers', [CarrierController::class, 'index']);
     Route::post('carriers/labels', [CarrierController::class, 'labels']);
     Route::post('carriers/{carrier}/ship', [CarrierController::class, 'ship'])->middleware('can:orders.ship')->where('carrier', '[a-z0-9_-]+');
@@ -105,7 +109,25 @@ Route::middleware(['web', 'auth', 'admin.access'])->group(function () {
     Route::get('speedaf/orders/{order}/label', [SpeedafOrderController::class, 'label']);
 
     // Clôture du jour (caisse livreurs)
-    Route::get('closings', [ClosingController::class, 'index']);
-    Route::get('closings/pending', [ClosingController::class, 'pending']);
-    Route::post('closings', [ClosingController::class, 'store']);
+    Route::middleware('can:closings.manage')->group(function () {
+        Route::get('closings', [ClosingController::class, 'index']);
+        Route::get('closings/pending', [ClosingController::class, 'pending']);
+        Route::post('closings', [ClosingController::class, 'store']);
+    });
+
+    // Équipe (T6): utilisateurs, services, performance, commissions
+    Route::middleware('can:users.manage')->group(function () {
+        Route::get('users', [UserController::class, 'index']);
+        Route::post('users', [UserController::class, 'store']);
+        Route::get('users/{user}', [UserController::class, 'show']);
+        Route::put('users/{user}', [UserController::class, 'update']);
+        Route::get('services', [ServiceController::class, 'index']);
+        Route::post('services', [ServiceController::class, 'store']);
+        Route::put('services/{service}', [ServiceController::class, 'update']);
+        Route::delete('services/{service}', [ServiceController::class, 'destroy']);
+    });
+    Route::get('team/performance', [TeamController::class, 'performance']);
+    Route::get('team/commissions', [TeamController::class, 'commissions']);
+    Route::post('team/commissions/transition', [TeamController::class, 'transition'])->middleware('can:commissions.manage');
+    Route::post('team/commissions/monthly', [TeamController::class, 'monthly'])->middleware('can:commissions.manage');
 });

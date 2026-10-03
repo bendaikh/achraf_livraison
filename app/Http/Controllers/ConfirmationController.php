@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\OrderResource;
 use App\Models\ConfirmationStatus;
 use App\Models\Order;
+use App\Models\OrderCall;
 use App\Models\User;
 use App\Services\ConfirmationStatusService;
 use App\Services\OrderWorkflow;
@@ -29,11 +31,13 @@ class ConfirmationController extends Controller
             $filter = $defaultCode;
         }
 
+        $agent = (string) $request->query('agent', '');
         $query = Order::query()
-            ->with(['shop:id,shop_domain,shop_name'])
+            ->with(['shop:id,shop_domain,shop_name', 'assignedUser:id,name'])
             ->orderByRaw('COALESCE(shopify_created_at, created_at) DESC')->orderByDesc('id');
 
         $this->statuses->applyFilter($query, $filter);
+        ConfirmationCentreController::applyAgentFilter($query, $agent, $request->user()?->id);
 
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
@@ -49,6 +53,7 @@ class ConfirmationController extends Controller
         $orders = collect($paginator->items())->map(fn (Order $order) => $this->listPayload($order));
 
         $countBase = Order::query();
+        ConfirmationCentreController::applyAgentFilter($countBase, $agent, $request->user()?->id);
         if ($search !== '') {
             $countBase->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
@@ -88,7 +93,7 @@ class ConfirmationController extends Controller
         /** @var User $user */
         $user = $request->user();
         $status = ConfirmationStatus::requireByCode(Order::CONFIRMATION_CONFIRMED);
-        $channel = $request->validate(['channel' => ['nullable', 'in:'.implode(',', array_keys(\App\Models\OrderCall::CHANNELS))]])['channel'] ?? null;
+        $channel = $request->validate(['channel' => ['nullable', 'in:'.implode(',', array_keys(OrderCall::CHANNELS))]])['channel'] ?? null;
 
         $order->forceFill([
             'confirmation_status' => $status->code,
@@ -274,6 +279,8 @@ class ConfirmationController extends Controller
             'is_due' => $due,
             'can_act' => $order->canPerformConfirmationActions(),
             'postponed_until' => $order->postponed_until?->toIso8601String(),
+            'assigned_user_id' => $order->assigned_user_id,
+            'assigned_user_name' => $order->assignedUser?->name,
             'shopify_created_at' => $order->shopify_created_at?->toIso8601String(),
             'received_at' => ($order->shopify_created_at ?? $order->created_at)?->toIso8601String(),
         ];
@@ -302,7 +309,7 @@ class ConfirmationController extends Controller
             'discount_total' => (float) $order->discount_total,
             'calls' => $order->calls()->with('user:id,name')->limit(50)->get()->map->toPayload()->values(),
             'discounts' => $order->discounts()->with('user:id,name')->get()->map->toPayload()->values(),
-            'full' => (new \App\Http\Resources\OrderResource($order->loadMissing(['deliveryStatus', 'driver', 'assignedUser', 'speedafShipments'])))->resolve(),
+            'full' => (new OrderResource($order->loadMissing(['deliveryStatus', 'driver', 'assignedUser', 'speedafShipments'])))->resolve(),
         ]);
     }
 }

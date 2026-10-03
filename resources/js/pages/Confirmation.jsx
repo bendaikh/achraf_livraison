@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PackageSearch, Play, RefreshCw, Search } from 'lucide-react';
 import ConfirmationOrderCard from './ConfirmationOrderCard';
 import ConfirmationStats from '../components/confirmation/ConfirmationStats';
+import { useMeta } from '../context/MetaContext';
 
 export default function Confirmation() {
     const [orders, setOrders] = useState([]);
@@ -14,6 +15,8 @@ export default function Confirmation() {
     const [search, setSearch] = useState(params.get('search') || '');
     const [debouncedSearch, setDebouncedSearch] = useState(params.get('search') || '');
     const [filter, setFilter] = useState(params.get('filter') || '');
+    const [agent, setAgent] = useState(params.get('agent') || '');
+    const metaCtx = useMeta();
     const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -26,7 +29,7 @@ export default function Confirmation() {
 
     useEffect(() => {
         setPage(1);
-    }, [debouncedSearch, filter]);
+    }, [debouncedSearch, filter, agent]);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -38,6 +41,7 @@ export default function Confirmation() {
                     per_page: 25,
                     search: debouncedSearch || undefined,
                     filter: filter || undefined,
+                    agent: agent || undefined,
                 },
             });
             setOrders(data.orders || []);
@@ -55,7 +59,7 @@ export default function Confirmation() {
         } finally {
             setLoading(false);
         }
-    }, [page, debouncedSearch, filter]);
+    }, [page, debouncedSearch, filter, agent]);
 
     useEffect(() => {
         load();
@@ -66,6 +70,7 @@ export default function Confirmation() {
         const q = new URLSearchParams();
         if (filter) q.set('filter', filter);
         if (debouncedSearch) q.set('search', debouncedSearch);
+        if (agent) q.set('agent', agent);
         const str = q.toString();
         return str ? `?${str}` : '';
     };
@@ -126,7 +131,8 @@ export default function Confirmation() {
 
             <section className="space-y-3">
                 <div className="rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm shadow-slate-200/40 sm:p-4">
-                    <div className="relative">
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                    <div className="relative flex-1">
                         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                         <input
                             type="search"
@@ -135,6 +141,22 @@ export default function Confirmation() {
                             placeholder="N° commande, client, téléphone…"
                             className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
                         />
+                    </div>
+                    <select
+                        value={agent}
+                        onChange={(e) => setAgent(e.target.value)}
+                        aria-label="Agent"
+                        className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 outline-none focus:border-blue-300 sm:w-56"
+                    >
+                        <option value="">Tous les agents</option>
+                        <option value="me">Mes commandes</option>
+                        <option value="none">Non assignées</option>
+                        {(metaCtx.users || []).map((u) => (
+                            <option key={u.id} value={u.id}>
+                                {u.name}
+                            </option>
+                        ))}
+                    </select>
                     </div>
                     <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
                         {filterButtons.map((item) => {

@@ -26,6 +26,7 @@ export default function ConfirmationOrderCard({ order, onOpen }) {
                     <p className="mt-0.5 truncate text-xs font-medium text-slate-500">
                         {[order.phone || '—', order.city || '—'].join(' · ')}
                     </p>
+                    {order.assigned_user_name ? <p className="mt-0.5 truncate text-[11px] font-semibold text-cyan-700">Agent : {order.assigned_user_name}</p> : null}
                 </div>
                 <div className="shrink-0 text-right">
                     <p className="text-sm font-bold text-slate-900">

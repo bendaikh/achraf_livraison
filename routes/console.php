@@ -1,5 +1,7 @@
 <?php
 
+use App\Services\Shopify\CatalogSyncService;
+use App\Services\Team\CommissionService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -22,7 +24,15 @@ Schedule::call(fn () => Artisan::call('speedaf:sync'))
 | Shopify product catalog (T4): incremental every hour, full pass once a day (inside syncAll).
 | Webhooks products/* + inventory_levels/update keep it live in between.
 */
-Schedule::call(fn () => app(\App\Services\Shopify\CatalogSyncService::class)->syncAll())
+Schedule::call(fn () => app(CatalogSyncService::class)->syncAll())
     ->name('shopify-catalog-sync')
     ->hourly()
     ->withoutOverlapping(55);
+
+/*
+| Agent commissions (T6): fixed monthly amounts of the previous month, on the 1st.
+*/
+Schedule::call(fn () => app(CommissionService::class)->generateMonthly())
+    ->name('agent-monthly-commissions')
+    ->monthlyOn(1, '00:30')
+    ->withoutOverlapping(30);
