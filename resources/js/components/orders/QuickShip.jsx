@@ -322,7 +322,7 @@ function ShipmentInfo({ order, canReassign, onReassign, onChanged }) {
         setRefreshing(true);
         setNote(null);
         try {
-            const { data } = await api.post(`/ozon/orders/${order.id}/refresh`);
+            const { data } = await api.post(`/${s.carrier}/orders/${order.id}/refresh`);
             setNote({ ok: true, text: data.message });
             onChanged?.();
         } catch (e) {
@@ -359,10 +359,10 @@ function ShipmentInfo({ order, canReassign, onReassign, onChanged }) {
                     {s.last_error ? <div className="mt-1 text-xs text-rose-600">{s.last_error}</div> : null}
                 </div>
                 {s.delivery_note_ref ? <div className="text-xs text-slate-500">BL Ozon : <span className="font-mono font-semibold">{s.delivery_note_ref}</span></div> : null}
-                {s.carrier === 'ozon' ? (
+                {s.carrier === 'ozon' || s.can_refresh ? (
                     <div>
                         <button type="button" onClick={refreshOzon} disabled={refreshing} className="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 hover:text-teal-800 disabled:opacity-60">
-                            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} /> Actualiser depuis Ozon
+                            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} /> Actualiser depuis {s.carrier_label}
                         </button>
                         {note ? <div className={`mt-1 text-xs ${note.ok ? 'text-emerald-700' : 'text-rose-600'}`}>{note.text}</div> : null}
                     </div>

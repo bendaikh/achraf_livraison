@@ -20,6 +20,8 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\SavController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\SettingsController;
+use App\Http\Controllers\Api\SiftIntegrationController;
+use App\Http\Controllers\Api\SiftOrderController;
 use App\Http\Controllers\Api\SpeedafIntegrationController;
 use App\Http\Controllers\Api\SpeedafOrderController;
 use App\Http\Controllers\Api\TeamController;
@@ -158,6 +160,30 @@ Route::middleware(['web', 'auth', 'admin.access'])->group(function () {
         Route::get('integrations/ozon/delivery-notes', [OzonIntegrationController::class, 'deliveryNotes']);
     });
     Route::get('ozon/cities', [OzonIntegrationController::class, 'cities']);
+
+    // Intégrations → Transporteurs → Sift.ma (T8) + Paramètres → Transporteurs → Sift (mapping statuts)
+    Route::middleware('can:settings.manage')->group(function () {
+        Route::get('integrations/sift', [SiftIntegrationController::class, 'show']);
+        Route::put('integrations/sift', [SiftIntegrationController::class, 'update']);
+        Route::post('integrations/sift/test', [SiftIntegrationController::class, 'test']);
+        Route::post('integrations/sift/webhook/secret', [SiftIntegrationController::class, 'revealSecret']);
+        Route::post('integrations/sift/webhook/regenerate', [SiftIntegrationController::class, 'regenerateSecret']);
+        Route::post('integrations/sift/webhook/register', [SiftIntegrationController::class, 'registerWebhook']);
+        Route::get('integrations/sift/webhook/events', [SiftIntegrationController::class, 'webhookEvents']);
+        Route::post('integrations/sift/sync', [SiftIntegrationController::class, 'sync']);
+        Route::get('integrations/sift/parcels', [SiftIntegrationController::class, 'parcels']);
+        Route::get('integrations/sift/lookup', [SiftIntegrationController::class, 'lookup']);
+        Route::get('integrations/sift/products', [SiftIntegrationController::class, 'products']);
+        Route::get('integrations/sift/logs', [SiftIntegrationController::class, 'logs']);
+        Route::post('integrations/sift/logs/{log}/retry', [SiftIntegrationController::class, 'retry']);
+    });
+    Route::post('sift/orders/{order}/refresh', [SiftOrderController::class, 'refresh']);
+    Route::post('sift/orders/{order}/resync', [SiftOrderController::class, 'resync'])->middleware('can:orders.ship');
+    Route::put('sift/orders/{order}', [SiftOrderController::class, 'update'])->middleware('can:orders.ship');
+    Route::post('sift/orders/{order}/cancel', [SiftOrderController::class, 'cancel'])->middleware('can:orders.ship');
+    Route::post('sift/orders/{order}/hide', [SiftOrderController::class, 'hide'])->middleware('can:orders.ship');
+    Route::get('sift/orders/{order}/waybill', [SiftOrderController::class, 'waybill']);
+    Route::post('sift/labels', [SiftOrderController::class, 'labels']);
     Route::post('ozon/orders/{order}/refresh', [OzonOrderController::class, 'refresh']);
     Route::post('ozon/orders/{order}/track', [OzonOrderController::class, 'track']);
     Route::post('ozon/delivery-notes', [OzonOrderController::class, 'createDeliveryNote'])->middleware('can:orders.ship');

@@ -11,6 +11,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Shopify\ShopifyAuthController;
 use App\Http\Controllers\Shopify\ShopifyIntegrationController;
 use App\Http\Controllers\Shopify\ShopifyWebhookController;
+use App\Http\Controllers\SiftWebhookController;
 use App\Http\Controllers\SpeedafWebhookController;
 use App\Http\Controllers\WhatsApp\WhatsAppAccountController;
 use App\Http\Controllers\WhatsApp\WhatsAppConversationController;
@@ -34,6 +35,7 @@ Route::post('/shopify/webhooks', ShopifyWebhookController::class);
 
 // Speedaf tracking push (signed HMAC-SHA256, per-company token in the URL)
 Route::post('/speedaf/webhook/{token}', SpeedafWebhookController::class)->where('token', '[A-Za-z0-9]{20,64}');
+Route::post('/sift/webhook/{token}', SiftWebhookController::class)->where('token', '[A-Za-z0-9]{20,64}');
 
 /*
 | WhatsApp / Meta — OAuth callback + webhooks (public).

@@ -145,6 +145,7 @@ export const modules = [
         ability: 'settings.manage',
         tabs: [
             { to: '/integrations/ozon', label: 'Ozon Express' },
+            { to: '/integrations/sift', label: 'Sift.ma' },
             { to: '/integrations/speedaf', label: 'Speedaf' },
             { to: '/integrations/shopify', label: 'Shopify' },
         ],
@@ -180,7 +181,7 @@ export const modules = [
             { to: '/parametres', label: 'Société & tarifs', end: true },
             { to: '/parametres/statuts', label: 'Statuts de livraison' },
             { to: '/parametres/partenaires', label: 'Partenaires logistiques' },
-            { to: '/parametres/transporteurs/ozon', label: 'Transporteurs' },
+            { to: '/parametres/transporteurs', label: 'Transporteurs' },
             { to: '/parametres/equipe', label: 'Équipe & rémunération' },
         ],
     },

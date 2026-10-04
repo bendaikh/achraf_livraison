@@ -51,3 +51,13 @@ Schedule::call(fn () => app(CommissionService::class)->generateMonthly())
     ->name('agent-monthly-commissions')
     ->monthlyOn(1, '00:30')
     ->withoutOverlapping(30);
+
+/*
+| Sift.ma (T8): webhooks are the main channel; this polling (GET /parcels/{id} per open parcel)
+| is the safety net, every 30 minutes, only for companies with the integration enabled and
+| auto-sync on.
+*/
+Schedule::call(fn () => Artisan::call('sift:sync'))
+    ->name('sift-sync')
+    ->everyThirtyMinutes()
+    ->withoutOverlapping(25);

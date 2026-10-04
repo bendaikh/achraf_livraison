@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\SpeedafSetting;
 use App\Models\SpeedafShipment;
 use App\Models\User;
+use App\Services\Carriers\CarrierRegistry;
 use App\Services\OrderWorkflow;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -63,6 +64,11 @@ class SpeedafShipmentService
 
         if ($existing = self::activeShipment($order)) {
             throw new SpeedafException("La commande {$order->reference()} est déjà envoyée à Speedaf (n° {$existing->bill_code}).");
+        }
+        foreach (app(CarrierRegistry::class)->all() as $key => $carrier) {
+            if ($key !== 'speedaf' && ($other = $carrier->shipmentFor($order))) {
+                throw new SpeedafException("La commande {$order->reference()} est déjà envoyée à {$other['carrier_label']} (n° {$other['tracking']}).");
+            }
         }
         if (! $order->isConfirmed()) {
             throw new SpeedafException("La commande {$order->reference()} doit être confirmée avant l’envoi à Speedaf.");

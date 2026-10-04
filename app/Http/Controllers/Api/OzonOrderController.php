@@ -25,7 +25,7 @@ class OzonOrderController extends Controller
 
     protected function orderPayload(Order $order): array
     {
-        return (new OrderResource($order->fresh()->load(['deliveryStatus', 'driver', 'assignedUser', 'assignedByUser:id,name', 'shop:id,shop_domain,shop_name', 'missions.driver', 'histories.user', 'speedafShipments', 'ozonShipments.deliveryNote'])))->resolve();
+        return (new OrderResource($order->fresh()->load(['deliveryStatus', 'driver', 'assignedUser', 'assignedByUser:id,name', 'shop:id,shop_domain,shop_name', 'missions.driver', 'histories.user', 'speedafShipments', 'ozonShipments.deliveryNote', 'siftShipments'])))->resolve();
     }
 
     protected function shipmentOf(Order $order, Request $request): OzonShipment

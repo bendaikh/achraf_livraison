@@ -504,7 +504,7 @@ class OzonIntegrationTest extends TestCase
     public function test_other_carriers_stay_available(): void
     {
         $keys = collect($this->getJson('/api/carriers')->assertOk()->json('carriers'))->pluck('key')->all();
-        $this->assertSame(['speedaf', 'ozon'], $keys);
+        $this->assertSame(['speedaf', 'ozon', 'sift'], $keys);
         $ozon = collect($this->getJson('/api/carriers')->json('carriers'))->firstWhere('key', 'ozon');
         $this->assertFalse($ozon['available']);
         $this->assertStringContainsString('Ozon Express', $ozon['reason']);

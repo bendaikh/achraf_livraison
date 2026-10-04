@@ -36,6 +36,7 @@ const Profile = lazy(() => import('./pages/Profile'));
 const ShopifyIntegration = lazy(() => import('./pages/ShopifyIntegration'));
 const SpeedafIntegration = lazy(() => import('./pages/SpeedafIntegration'));
 const OzonIntegration = lazy(() => import('./pages/OzonIntegration'));
+const SiftIntegration = lazy(() => import('./pages/SiftIntegration'));
 const WhatsAppInbox = lazy(() => import('./pages/whatsapp/WhatsAppInbox'));
 const WhatsAppAccounts = lazy(() => import('./pages/whatsapp/WhatsAppAccounts'));
 const WhatsAppTemplates = lazy(() => import('./pages/whatsapp/WhatsAppTemplates'));
@@ -249,6 +250,22 @@ export default function AppRouter() {
                         element={
                             <PermissionRoute ability="settings.manage">
                                 <OzonIntegration defaultTab="villes" title="Transporteurs · Ozon Express" />
+                            </PermissionRoute>
+                        }
+                    />
+                    <Route
+                        path="integrations/sift"
+                        element={
+                            <PermissionRoute ability="settings.manage">
+                                <SiftIntegration />
+                            </PermissionRoute>
+                        }
+                    />
+                    <Route
+                        path="parametres/transporteurs/sift"
+                        element={
+                            <PermissionRoute ability="settings.manage">
+                                <SiftIntegration defaultTab="statuts" title="Transporteurs · Sift.ma" />
                             </PermissionRoute>
                         }
                     />

@@ -14,8 +14,9 @@ import { ColorBadge, StatusBadge } from '../components/ui/Badge';
 import StatusChangeForm from '../components/orders/StatusChangeForm';
 import SpeedafOrderCard from '../components/orders/SpeedafOrderCard';
 import OzonOrderCard from '../components/ozon/OzonOrderCard';
+import SiftOrderCard from '../components/sift/SiftOrderCard';
 
-const HISTORY_KINDS = { confirmation: 'Confirmation', affectation: 'Affectation', produits: 'Produits', expedition: 'Expédition', appel: 'Appel', remise: 'Remise', agent: 'Agent', sav: 'SAV', ozon: 'Ozon Express' };
+const HISTORY_KINDS = { confirmation: 'Confirmation', affectation: 'Affectation', produits: 'Produits', expedition: 'Expédition', appel: 'Appel', remise: 'Remise', agent: 'Agent', sav: 'SAV', ozon: 'Ozon Express', sift: 'Sift' };
 
 function Info({ label, children }) {
     return (
@@ -220,7 +221,7 @@ export default function OrderDetail() {
                         )}
                         {can('orders.assign_driver') ? (
                             <div className="flex flex-wrap gap-2">
-                                <Button size="sm" onClick={() => setAssigning(true)} disabled={busy}>
+                                <Button size="sm" onClick={() => setAssigning(true)} disabled={busy || (!order.driver && !!order.shipment)} title={!order.driver && order.shipment ? `Déjà envoyée à ${order.shipment.carrier_label}` : ''}>
                                     <Bike className="h-3.5 w-3.5" /> {order.driver ? 'Réaffecter' : 'Affecter à livraison locale'}
                                 </Button>
                                 {order.driver ? (
@@ -248,6 +249,7 @@ export default function OrderDetail() {
                     />
 
                     <OzonOrderCard order={order} onChanged={setOrder} />
+                    <SiftOrderCard order={order} onChanged={setOrder} />
 
                     <SpeedafOrderCard order={order} onChanged={setOrder} />
 

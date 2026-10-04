@@ -32,7 +32,7 @@ class OrderController extends Controller
 
     public function index(Request $request)
     {
-        $q = Order::query()->with(['deliveryStatus', 'driver', 'assignedUser', 'shop:id,shop_domain,shop_name', 'speedafShipments', 'ozonShipments.deliveryNote']);
+        $q = Order::query()->with(['deliveryStatus', 'driver', 'assignedUser', 'shop:id,shop_domain,shop_name', 'speedafShipments', 'ozonShipments.deliveryNote', 'siftShipments']);
 
         $this->applyFilters($q, $request);
 
@@ -158,7 +158,7 @@ class OrderController extends Controller
                 continue;
             }
             $count = (int) ($counts[$st->code] ?? 0) + ($st->code === $nullCode ? (int) ($counts[''] ?? 0) : 0);
-            $q = (clone $base)->with(['deliveryStatus', 'driver', 'assignedUser', 'shop:id,shop_domain,shop_name', 'speedafShipments', 'ozonShipments.deliveryNote']);
+            $q = (clone $base)->with(['deliveryStatus', 'driver', 'assignedUser', 'shop:id,shop_domain,shop_name', 'speedafShipments', 'ozonShipments.deliveryNote', 'siftShipments']);
             $scope($q, $st->code);
             $orders = $q->orderByDesc('created_at')->orderByDesc('id')->skip($offset)->take($limit)->get();
             $catalog->prime($orders);
@@ -329,7 +329,7 @@ class OrderController extends Controller
 
     protected function detailRelations(): array
     {
-        return ['deliveryStatus', 'driver', 'assignedUser', 'assignedByUser:id,name', 'shop:id,shop_domain,shop_name', 'missions.driver', 'histories.user', 'speedafShipments', 'ozonShipments.deliveryNote'];
+        return ['deliveryStatus', 'driver', 'assignedUser', 'assignedByUser:id,name', 'shop:id,shop_domain,shop_name', 'missions.driver', 'histories.user', 'speedafShipments', 'ozonShipments.deliveryNote', 'siftShipments'];
     }
 
     protected function validated(Request $request, bool $partial = false): array

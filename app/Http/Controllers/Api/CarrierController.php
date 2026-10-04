@@ -89,7 +89,7 @@ class CarrierController extends Controller
         }
 
         $single = count($data['order_ids']) === 1 && $orders->count() === 1
-            ? (new OrderResource($orders->first()->fresh()->load(['deliveryStatus', 'driver', 'assignedUser', 'speedafShipments', 'ozonShipments.deliveryNote'])))->resolve()
+            ? (new OrderResource($orders->first()->fresh()->load(['deliveryStatus', 'driver', 'assignedUser', 'speedafShipments', 'ozonShipments.deliveryNote', 'siftShipments'])))->resolve()
             : null;
 
         return response()->json(['message' => $message, 'sent' => $ok, 'failed' => $failed, 'results' => $results, 'data' => $single], $ok === 0 ? 422 : 200);

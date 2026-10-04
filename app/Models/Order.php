@@ -252,6 +252,19 @@ class Order extends Model
         return $this->hasMany(OzonShipment::class)->orderByDesc('id');
     }
 
+    public function siftShipments(): HasMany
+    {
+        return $this->hasMany(SiftShipment::class)->orderByDesc('id');
+    }
+
+    /** Current Sift.ma parcel (not cancelled, not hidden), loaded relation first. */
+    public function currentSiftShipment(): ?SiftShipment
+    {
+        $list = $this->relationLoaded('siftShipments') ? $this->siftShipments : $this->siftShipments()->get();
+
+        return $list->first(fn (SiftShipment $s) => $s->isActive());
+    }
+
     /** Current Speedaf waybill (latest not cancelled), from the loaded relation when available. */
     public function currentSpeedafShipment(): ?SpeedafShipment
     {
@@ -425,6 +438,9 @@ class Order extends Model
         }
         if ($this->currentOzonShipment()) {
             return 'Déjà envoyée à Ozon Express.';
+        }
+        if ($this->currentSiftShipment()) {
+            return 'Déjà envoyée à Sift.';
         }
         if ($this->isActiveWithDriver() || $this->isAwaitingAssignment()) {
             return null;

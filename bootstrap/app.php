@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'shopify/webhooks',
             'whatsapp/webhooks',
             'speedaf/webhook/*',
+            'sift/webhook/*',
         ]);
         $middleware->alias([
             'admin.access' => \App\Http\Middleware\EnsureAdminAccess::class,

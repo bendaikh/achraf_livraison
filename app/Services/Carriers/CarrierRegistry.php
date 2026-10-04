@@ -42,7 +42,8 @@ class CarrierRegistry
 
             return ['key' => $c->key(), 'label' => $c->label(), 'color' => $c->color(), 'available' => $reason === null, 'reason' => $reason,
                 'preview' => (bool) ($caps['preview'] ?? false), 'delivery_notes' => (bool) ($caps['delivery_notes'] ?? false),
-                'bulk_enabled' => (bool) ($caps['bulk_enabled'] ?? true), 'bulk_reason' => $caps['bulk_reason'] ?? null];
+                'bulk_enabled' => (bool) ($caps['bulk_enabled'] ?? true), 'bulk_reason' => $caps['bulk_reason'] ?? null,
+                'waybill_formats' => $caps['waybill_formats'] ?? null, 'default_waybill_format' => $caps['default_waybill_format'] ?? null];
         }, $this->all()));
     }
 

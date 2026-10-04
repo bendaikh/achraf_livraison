@@ -13,9 +13,10 @@ function Flag({ on, yes, no }) {
 }
 
 /**
- * Validation popup before sending to a carrier with preview (Ozon Express): client, city (Ozon
- * ID), COD, ouverture, fragile, échange → « Confirmer l’envoi ». Already-sent orders show
- * « Cette commande est déjà envoyée à Ozon » with open / refresh actions instead.
+ * Validation popup before sending to a carrier with preview (Ozon Express, Sift.ma): client,
+ * city (Ozon ID for Ozon), COD, ouverture, fragile / échange (Ozon), articles, customOrderNo
+ * (Sift) → « Confirmer l’envoi ». Already-sent orders show « Cette commande est déjà envoyée à
+ * <transporteur> » with open / refresh actions instead. Only the fields a carrier returns are shown.
  * Modes: orderIds (Commandes) or savId (Retours & échanges, exchange parcel).
  */
 export default function CarrierSendDialog({ carrier, orderIds = [], savId = null, onClose, onDone }) {
@@ -38,7 +39,7 @@ export default function CarrierSendDialog({ carrier, orderIds = [], savId = null
                     : await api.post(`/carriers/${carrier.key}/preview`, { order_ids: orderIds, options: opts || {} });
                 setRows(data.rows);
                 setMeta({ unavailable: data.unavailable, bulkBlocked: data.bulk_blocked });
-                if (!opts && data.rows[0]) setOptions({ open: data.rows[0].open, fragile: data.rows[0].fragile });
+                if (!opts && data.rows[0]) setOptions(data.rows[0].fragile === undefined ? { open: data.rows[0].open } : { open: data.rows[0].open, fragile: data.rows[0].fragile });
             } catch (e) {
                 setError(errorMessage(e));
                 setRows([]);
@@ -80,7 +81,7 @@ export default function CarrierSendDialog({ carrier, orderIds = [], savId = null
         setBusy(`refresh-${row.order_id}`);
         setError(null);
         try {
-            const { data } = await api.post(`/ozon/orders/${row.order_id}/refresh`);
+            const { data } = await api.post(`/${carrier.key}/orders/${row.order_id}/refresh`);
             setResult({ ok: true, message: data.message });
             await load(options);
             onDone?.();
@@ -168,10 +169,12 @@ export default function CarrierSendDialog({ carrier, orderIds = [], savId = null
                                         <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-teal-600" checked={options.open} onChange={(e) => setOpt('open', e.target.checked)} />
                                         Ouverture autorisée
                                     </label>
-                                    <label className="flex items-center gap-2 font-semibold text-slate-700">
-                                        <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-teal-600" checked={options.fragile} onChange={(e) => setOpt('fragile', e.target.checked)} />
-                                        Fragile
-                                    </label>
+                                    {options.fragile !== undefined ? (
+                                        <label className="flex items-center gap-2 font-semibold text-slate-700">
+                                            <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-teal-600" checked={options.fragile} onChange={(e) => setOpt('fragile', e.target.checked)} />
+                                            Fragile
+                                        </label>
+                                    ) : null}
                                     {savId ? (
                                         <label className="flex items-center gap-2 font-semibold text-slate-700">
                                             Montant à encaisser
@@ -209,7 +212,7 @@ export default function CarrierSendDialog({ carrier, orderIds = [], savId = null
                                                         </span>
                                                     ) : null}
                                                 </div>
-                                                {!r.ozon_city && r.city && canMap && !r.already ? (
+                                                {carrier.key === 'ozon' && !r.ozon_city && r.city && canMap && !r.already ? (
                                                     <div className="mt-1">
                                                         <OzonCityPicker value={null} suggestions={r.city_suggestions} disabled={busy === `city-${r.order_id}`} onChange={(c) => mapCity(r, c)} placeholder="Associer à une ville Ozon…" />
                                                     </div>
@@ -217,20 +220,36 @@ export default function CarrierSendDialog({ carrier, orderIds = [], savId = null
                                             </div>
                                             <div className="flex flex-wrap items-end gap-1.5">
                                                 <Flag on={r.open} yes="Ouverture : oui" no="Ouverture : non" />
-                                                <Flag on={r.fragile} yes="Fragile" no="Non fragile" />
-                                                <Flag on={r.replace} yes="Échange" no="Pas d’échange" />
-                                                <Flag on={r.stock === 1} yes="Stock Ozon" no="Ramassage" />
+                                                {r.fragile !== undefined ? <Flag on={r.fragile} yes="Fragile" no="Non fragile" /> : null}
+                                                {r.replace !== undefined ? <Flag on={r.replace} yes="Échange" no="Pas d’échange" /> : null}
+                                                {r.stock !== undefined ? <Flag on={r.stock === 1} yes="Stock Ozon" no="Ramassage" /> : null}
+                                                {r.cod !== undefined ? <Flag on={r.cod} yes="Contre-remboursement" no="Payée (COD 0)" /> : null}
                                             </div>
                                         </div>
                                         {r.nature ? <div className="mt-1.5 truncate text-xs text-slate-500">Nature : {r.nature}</div> : null}
-                                        {r.products?.length ? <div className="text-xs text-slate-500">Produits : {r.products.map((p) => `${p.ref} ×${p.qnty}`).join(', ')}</div> : <div className="text-xs text-slate-400">Aucun produit avec SKU : liste produits non envoyée.</div>}
+                                        {r.items !== undefined ? (
+                                            <div className="mt-1.5 space-y-0.5 text-xs text-slate-500">
+                                                <div>
+                                                    Articles ({r.quantity}) : {r.items.map((p) => `${p.name} ×${p.quantity}${p.sku ? ` [${p.sku}]` : ''}`).join(', ') || '—'}
+                                                </div>
+                                                <div>
+                                                    N° commande transporteur : <span className="font-mono font-semibold text-slate-700">{r.custom_order_no}</span>
+                                                    {r.items_mode === 'sku' ? ' · lignes avec SKU liées au stock' : ' · lignes manuelles'}
+                                                </div>
+                                                {r.note ? <div className="truncate">Notes : {r.note}</div> : null}
+                                            </div>
+                                        ) : r.products?.length ? (
+                                            <div className="text-xs text-slate-500">Produits : {r.products.map((p) => `${p.ref} ×${p.qnty}`).join(', ')}</div>
+                                        ) : (
+                                            <div className="text-xs text-slate-400">Aucun produit avec SKU : liste produits non envoyée.</div>
+                                        )}
                                         {r.already ? (
                                             <div className="mt-2 rounded-lg bg-white px-3 py-2 ring-1 ring-amber-200">
                                                 <div className="flex items-center gap-1.5 text-sm font-semibold text-amber-800">
-                                                    <AlertTriangle className="h-4 w-4" /> Cette commande est déjà envoyée à Ozon
+                                                    <AlertTriangle className="h-4 w-4" /> Cette commande est déjà envoyée à {carrier.label}
                                                 </div>
                                                 <div className="text-xs text-slate-600">
-                                                    N° <span className="font-mono font-semibold">{r.already.tracking_number}</span> · {r.already.raw_status || 'Créé'}
+                                                    N° <span className="font-mono font-semibold">{r.already.tracking_number}</span> · {r.already.raw_status_label || r.already.raw_status || 'Créé'}
                                                 </div>
                                                 <div className="mt-1.5 flex flex-wrap gap-2">
                                                     <Link to={`/commandes/${r.order_id}`} className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700">
@@ -238,7 +257,7 @@ export default function CarrierSendDialog({ carrier, orderIds = [], savId = null
                                                     </Link>
                                                     {!savId ? (
                                                         <button type="button" onClick={() => refresh(r)} disabled={!!busy} className="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 hover:text-teal-800">
-                                                            <RefreshCw className={`h-3.5 w-3.5 ${busy === `refresh-${r.order_id}` ? 'animate-spin' : ''}`} /> Actualiser depuis Ozon
+                                                            <RefreshCw className={`h-3.5 w-3.5 ${busy === `refresh-${r.order_id}` ? 'animate-spin' : ''}`} /> Actualiser depuis {carrier.label}
                                                         </button>
                                                     ) : null}
                                                 </div>

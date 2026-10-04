@@ -53,7 +53,7 @@ class LocalAssignmentController extends Controller
             throw ValidationException::withMessages(['driver_id' => 'Ce livreur est inactif.']);
         }
 
-        $orders = Order::query()->with(['deliveryStatus', 'speedafShipments', 'ozonShipments.deliveryNote', 'driver'])->whereIn('id', $data['order_ids'])->get()->keyBy('id');
+        $orders = Order::query()->with(['deliveryStatus', 'speedafShipments', 'ozonShipments.deliveryNote', 'siftShipments', 'driver'])->whereIn('id', $data['order_ids'])->get()->keyBy('id');
         $results = [];
         $assigned = 0;
         foreach ($data['order_ids'] as $id) {

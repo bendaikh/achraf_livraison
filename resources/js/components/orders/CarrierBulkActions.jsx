@@ -9,13 +9,15 @@ import DocumentLinks from '../ozon/DocumentLinks';
 /**
  * Commandes multi-select → delivery companies (T11): one « Envoyer à X » per registered
  * carrier (POST /api/carriers/{key}/ship) and « Imprimer les étiquettes » for every carrier
- * (POST /api/carriers/labels). Results are listed in a drawer.
+ * (POST /api/carriers/labels). Carriers with waybill formats (Sift) get « Étiquettes X » with a
+ * format choice (POST /api/sift/labels). Results are listed in a drawer.
  */
 export default function CarrierBulkActions({ ids, onDone }) {
     const { carriers, can_ship: canShip } = useCarriers();
     const [busy, setBusy] = useState('');
     const [panel, setPanel] = useState(null);
     const [dialog, setDialog] = useState(null);
+    const [formats, setFormats] = useState({});
 
     /** Multi-order actions of carriers that keep bulk disabled (Ozon until the test cycle is validated). */
     const bulkOff = (c) => ids.length > 1 && c.bulk_enabled === false;
@@ -41,6 +43,20 @@ export default function CarrierBulkActions({ ids, onDone }) {
             setPanel({ type: 'notes', title: `Étiquettes ${c.label}`, message: data.message, notes: data.delivery_notes });
         } catch (e) {
             setPanel({ type: 'notes', title: `Étiquettes ${c.label}`, error: errorMessage(e), notes: [] });
+        } finally {
+            setBusy('');
+        }
+    }
+
+    async function waybills(c) {
+        const format = formats[c.key] || c.default_waybill_format;
+        setBusy(`way-${c.key}`);
+        try {
+            const { data } = await api.post(`/${c.key}/labels`, { order_ids: ids, format });
+            if (data.labels?.length === 1) window.open(data.labels[0].pdf_url, '_blank', 'noopener');
+            setPanel({ type: 'labels', title: `Étiquettes ${c.label} · ${c.waybill_formats[format] || format}`, message: data.message, labels: data.labels });
+        } catch (e) {
+            setPanel({ type: 'labels', title: `Étiquettes ${c.label}`, error: errorMessage(e), labels: [] });
         } finally {
             setBusy('');
         }
@@ -101,6 +117,33 @@ export default function CarrierBulkActions({ ids, onDone }) {
                     <Button key={`lab-${c.key}`} size="sm" variant="secondary" onClick={() => carrierLabels(c)} disabled={!!busy || bulkOff(c)} title={bulkOff(c) ? c.bulk_reason || '' : ''}>
                         <Tag className="h-3.5 w-3.5" /> {busy === `lab-${c.key}` ? 'Préparation…' : `Étiquettes ${c.label.split(' ')[0]}`}
                     </Button>
+                ))}
+            {carriers
+                .filter((c) => c.waybill_formats)
+                .map((c) => (
+                    <span key={`way-${c.key}`} className="inline-flex items-stretch overflow-hidden rounded-xl ring-1 ring-slate-200" title={bulkOff(c) ? c.bulk_reason || '' : ''}>
+                        <button
+                            type="button"
+                            onClick={() => waybills(c)}
+                            disabled={!!busy || bulkOff(c)}
+                            className="inline-flex h-8 items-center gap-1.5 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <Tag className="h-3.5 w-3.5" /> {busy === `way-${c.key}` ? 'Préparation…' : `Étiquettes ${c.label}`}
+                        </button>
+                        <select
+                            aria-label={`Format des étiquettes ${c.label}`}
+                            value={formats[c.key] || c.default_waybill_format}
+                            onChange={(e) => setFormats((f) => ({ ...f, [c.key]: e.target.value }))}
+                            disabled={!!busy || bulkOff(c)}
+                            className="h-8 border-0 border-l border-slate-200 bg-slate-50 py-0 pl-2 pr-7 text-[11px] font-semibold text-slate-600 focus:ring-0 disabled:opacity-50"
+                        >
+                            {Object.entries(c.waybill_formats).map(([k, v]) => (
+                                <option key={k} value={k}>
+                                    {v}
+                                </option>
+                            ))}
+                        </select>
+                    </span>
                 ))}
             <Button size="sm" variant="secondary" onClick={labels} disabled={!!busy}>
                 <Printer className="h-3.5 w-3.5" /> {busy === 'labels' ? 'Préparation…' : 'Imprimer les étiquettes'}

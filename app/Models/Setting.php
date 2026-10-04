@@ -15,6 +15,8 @@ class Setting extends Model
         'confirmation_alert_hours' => 24,
         // T14: Ozon bulk actions (send / BL / labels on several orders) stay off until the full cycle is validated.
         'ozon_bulk_enabled' => false,
+        // T8: same gate for Sift.ma bulk actions (send / labels on several orders).
+        'sift_bulk_enabled' => false,
         'default_tariffs' => [
             'livraison' => 0, 'ramassage' => 0, 'depot_partenaire' => 0, 'retour' => 0, 'echange' => 0,
         ],

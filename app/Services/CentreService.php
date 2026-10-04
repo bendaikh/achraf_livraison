@@ -8,6 +8,7 @@ use App\Models\DeliveryStatus;
 use App\Models\Mission;
 use App\Models\Order;
 use App\Models\OzonShipment;
+use App\Models\SiftShipment;
 use App\Models\Setting;
 use App\Models\SpeedafShipment;
 use App\Models\User;
@@ -73,7 +74,8 @@ class CentreService
     public function toProcess(): int
     {
         return Order::query()->awaitingAssignment()->whereDoesntHave('speedafShipments', $this->activeShipment())
-            ->whereDoesntHave('ozonShipments', $this->activeOzon())->count();
+            ->whereDoesntHave('ozonShipments', $this->activeOzon())
+            ->whereDoesntHave('siftShipments', $this->activeSift())->count();
     }
 
     /** Parcels currently with an external carrier (sent, not delivered / returned / cancelled). */
@@ -81,7 +83,8 @@ class CentreService
     {
         return Order::query()
             ->where(fn ($w) => $w->whereHas('speedafShipments', fn ($q) => $q->where('state', SpeedafShipment::STATE_CREATED))
-                ->orWhereHas('ozonShipments', fn ($q) => $q->where('state', OzonShipment::STATE_CREATED)->whereNull('sav_request_id')))
+                ->orWhereHas('ozonShipments', fn ($q) => $q->where('state', OzonShipment::STATE_CREATED)->whereNull('sav_request_id'))
+                ->orWhereHas('siftShipments', fn ($q) => $q->where('state', SiftShipment::STATE_CREATED)->whereNull('hidden_at')))
             ->where(fn ($q) => $q->whereNull('delivery_status')->orWhereNotIn('delivery_status', $this->codes(self::CLOSED_CATEGORIES)))
             ->count();
     }
@@ -159,6 +162,7 @@ class CentreService
             ->whereNotIn('confirmation_status', ConfirmationStatus::codesOfType(ConfirmationStatus::TYPE_CANCELLED) ?: ['__none__'])
             ->whereDoesntHave('speedafShipments', $this->activeShipment())
             ->whereDoesntHave('ozonShipments', $this->activeOzon())
+            ->whereDoesntHave('siftShipments', $this->activeSift())
             ->whereNull('driver_id')
             ->chunkById(500, function ($orders) use ($lookup, &$ids) {
                 $lookup->prime($orders);
@@ -170,6 +174,11 @@ class CentreService
             });
 
         return $ids;
+    }
+
+    protected function activeSift(): \Closure
+    {
+        return fn ($q) => $q->where('state', '!=', SiftShipment::STATE_CANCELLED)->whereNull('hidden_at');
     }
 
     protected function activeOzon(): \Closure

@@ -68,8 +68,10 @@ class OrderResource extends JsonResource
             'assigned_user_id' => $this->assigned_user_id,
             'assigned_user' => $this->whenLoaded('assignedUser', fn () => $this->assignedUser ? ['id' => $this->assignedUser->id, 'name' => $this->assignedUser->name] : null),
             // Speedaf waybill (null when never sent / cancelled), only when the relation is loaded.
-            'shipment' => $this->when($this->relationLoaded('speedafShipments') || $this->relationLoaded('ozonShipments'), fn () => app(CarrierRegistry::class)->shipmentFor($this->resource)),
+            'shipment' => $this->when($this->relationLoaded('speedafShipments') || $this->relationLoaded('ozonShipments') || $this->relationLoaded('siftShipments'), fn () => app(CarrierRegistry::class)->shipmentFor($this->resource)),
             'ozon' => $this->when($this->relationLoaded('ozonShipments'), fn () => $this->currentOzonShipment()?->toSummary()),
+            'sift' => $this->when($this->relationLoaded('siftShipments'), fn () => $this->currentSiftShipment()?->toSummary()),
+            'sift_shipments' => $this->when($this->relationLoaded('siftShipments') && $this->relationLoaded('histories'), fn () => $this->siftShipments->map->toSummary()->values()),
             'ozon_shipments' => $this->when($this->relationLoaded('ozonShipments') && $this->relationLoaded('histories'), fn () => $this->ozonShipments->map->toSummary()->values()),
             'speedaf' => $this->when($this->relationLoaded('speedafShipments'), fn () => $this->currentSpeedafShipment()?->toSummary()),
             'speedaf_history' => $this->when($this->relationLoaded('speedafShipments') && $this->relationLoaded('histories'), fn () => $this->speedafShipments->map(fn ($s) => $s->toSummary() + ['tracks' => $s->tracks ?? []])->values()),

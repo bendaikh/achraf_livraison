@@ -134,6 +134,11 @@ export default function SpeedafOrderCard({ order, onChanged }) {
                             </ol>
                         ) : null}
                     </>
+                ) : order.shipment && order.shipment.carrier !== "speedaf" ? (
+                    <p className="text-sm text-slate-500">
+                        Déjà envoyée à {order.shipment.carrier_label} (n°{" "}
+                        {order.shipment.tracking}).
+                    </p>
                 ) : (
                     <>
                         <p className="text-sm text-slate-500">
