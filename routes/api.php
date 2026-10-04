@@ -13,6 +13,8 @@ use App\Http\Controllers\Api\MetaController;
 use App\Http\Controllers\Api\MissionController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\OrderItemController;
+use App\Http\Controllers\Api\OzonIntegrationController;
+use App\Http\Controllers\Api\OzonOrderController;
 use App\Http\Controllers\Api\PreferenceController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\SavController;
@@ -139,6 +141,29 @@ Route::middleware(['web', 'auth', 'admin.access'])->group(function () {
     Route::get('carriers', [CarrierController::class, 'index']);
     Route::post('carriers/labels', [CarrierController::class, 'labels']);
     Route::post('carriers/{carrier}/ship', [CarrierController::class, 'ship'])->middleware('can:orders.ship')->where('carrier', '[a-z0-9_-]+');
+    Route::post('carriers/{carrier}/preview', [CarrierController::class, 'preview'])->middleware('can:orders.ship')->where('carrier', '[a-z0-9_-]+');
+
+    // Intégrations → Transporteurs → Ozon Express (T14) + Paramètres → Transporteurs → Ozon (mappings)
+    Route::middleware('can:settings.manage')->group(function () {
+        Route::get('integrations/ozon', [OzonIntegrationController::class, 'show']);
+        Route::put('integrations/ozon', [OzonIntegrationController::class, 'update']);
+        Route::post('integrations/ozon/test', [OzonIntegrationController::class, 'test']);
+        Route::post('integrations/ozon/cities/sync', [OzonIntegrationController::class, 'syncCities']);
+        Route::get('integrations/ozon/city-mappings', [OzonIntegrationController::class, 'cityMappings']);
+        Route::put('integrations/ozon/city-mappings', [OzonIntegrationController::class, 'updateCityMapping']);
+        Route::post('integrations/ozon/city-mappings/auto', [OzonIntegrationController::class, 'autoMatch']);
+        Route::post('integrations/ozon/sync', [OzonIntegrationController::class, 'sync']);
+        Route::get('integrations/ozon/logs', [OzonIntegrationController::class, 'logs']);
+        Route::post('integrations/ozon/logs/{log}/retry', [OzonIntegrationController::class, 'retry']);
+        Route::get('integrations/ozon/delivery-notes', [OzonIntegrationController::class, 'deliveryNotes']);
+    });
+    Route::get('ozon/cities', [OzonIntegrationController::class, 'cities']);
+    Route::post('ozon/orders/{order}/refresh', [OzonOrderController::class, 'refresh']);
+    Route::post('ozon/orders/{order}/track', [OzonOrderController::class, 'track']);
+    Route::post('ozon/delivery-notes', [OzonOrderController::class, 'createDeliveryNote'])->middleware('can:orders.ship');
+    Route::post('ozon/labels', [OzonOrderController::class, 'labels']);
+    Route::get('sav/{sav}/ozon', [OzonOrderController::class, 'savPreview'])->middleware('can:sav.manage');
+    Route::post('sav/{sav}/ozon', [OzonOrderController::class, 'savSend'])->middleware('can:sav.manage');
     Route::post('speedaf/orders/send', [SpeedafOrderController::class, 'send'])->middleware('can:orders.ship');
     Route::post('speedaf/labels', [SpeedafOrderController::class, 'labels']);
     Route::post('speedaf/orders/{order}/cancel', [SpeedafOrderController::class, 'cancel'])->middleware('can:orders.ship');

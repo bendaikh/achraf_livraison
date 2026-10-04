@@ -1,12 +1,16 @@
 <?php
 
+use App\Services\Carriers\OzonCarrier;
+use App\Services\Carriers\SpeedafCarrier;
+
 /*
 | Sociétés de livraison (T11). Each entry = a class implementing
 | App\Services\Carriers\CarrierInterface. Order = display order in the quick-ship popup
-| and the Commandes bulk bar. Upcoming: 'sift' => SiftCarrier::class (T8), 'ozon' => OzonCarrier::class (T14).
+| and the Commandes bulk bar. Upcoming: 'sift' => SiftCarrier::class (T8).
 */
 return [
     'drivers' => [
-        'speedaf' => App\Services\Carriers\SpeedafCarrier::class,
+        'speedaf' => SpeedafCarrier::class,
+        'ozon' => OzonCarrier::class,
     ],
 ];

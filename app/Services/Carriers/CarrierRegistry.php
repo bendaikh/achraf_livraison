@@ -38,7 +38,11 @@ class CarrierRegistry
         return array_values(array_map(function (CarrierInterface $c) use ($companyId) {
             $reason = $c->unavailableReason($companyId);
 
-            return ['key' => $c->key(), 'label' => $c->label(), 'color' => $c->color(), 'available' => $reason === null, 'reason' => $reason];
+            $caps = $c instanceof AdvancedCarrier ? $c->capabilities($companyId) : [];
+
+            return ['key' => $c->key(), 'label' => $c->label(), 'color' => $c->color(), 'available' => $reason === null, 'reason' => $reason,
+                'preview' => (bool) ($caps['preview'] ?? false), 'delivery_notes' => (bool) ($caps['delivery_notes'] ?? false),
+                'bulk_enabled' => (bool) ($caps['bulk_enabled'] ?? true), 'bulk_reason' => $caps['bulk_reason'] ?? null];
         }, $this->all()));
     }
 

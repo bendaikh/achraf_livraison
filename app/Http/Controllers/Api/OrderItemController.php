@@ -87,7 +87,7 @@ class OrderItemController extends Controller
 
     protected function respond(array $result)
     {
-        $order = $result['order']->fresh()->load(['deliveryStatus', 'driver', 'assignedUser', 'assignedByUser:id,name', 'shop:id,shop_domain,shop_name', 'missions.driver', 'histories.user', 'speedafShipments']);
+        $order = $result['order']->fresh()->load(['deliveryStatus', 'driver', 'assignedUser', 'assignedByUser:id,name', 'shop:id,shop_domain,shop_name', 'missions.driver', 'histories.user', 'speedafShipments', 'ozonShipments.deliveryNote']);
 
         return (new OrderResource($order))->additional([
             'warning' => $result['warning'] ?? null,

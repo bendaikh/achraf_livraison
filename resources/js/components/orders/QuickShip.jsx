@@ -1,11 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Bike, CheckCircle2, ChevronRight, Copy, ExternalLink, PackagePlus, Printer, Truck, X, XCircle } from 'lucide-react';
+import { ArrowLeft, Bike, CheckCircle2, ChevronRight, Copy, ExternalLink, PackagePlus, Printer, RefreshCw, Truck, X, XCircle } from 'lucide-react';
 import api, { errorMessage } from '../../lib/api';
 import { formatDateTime, formatDH } from '../../lib/format';
 import useCarriers from '../../hooks/useCarriers';
 import { Button, Spinner } from '../ui';
+import CarrierSendDialog from '../ozon/CarrierSendDialog';
 
 /** Delivery categories where the order is finished (no re-assignment from the popup). */
 const FINAL_CATEGORIES = ['succes', 'retour', 'annulation'];
@@ -80,6 +81,7 @@ function QuickShipPopup({ anchor, order, onClose, onChanged }) {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState(null);
     const [done, setDone] = useState(null);
+    const [dialog, setDialog] = useState(null); // carrier with a validation preview (Ozon)
 
     useLayoutEffect(() => {
         if (isMobile) return undefined;
@@ -177,7 +179,7 @@ function QuickShipPopup({ anchor, order, onClose, onChanged }) {
                 ) : null}
 
                 {step === 'info' ? (
-                    <ShipmentInfo order={order} canReassign={canAssign && !shipped && !FINAL_CATEGORIES.includes(order.delivery_status?.category)} onReassign={() => setStep('local')} />
+                    <ShipmentInfo order={order} onChanged={onChanged} canReassign={canAssign && !shipped && !FINAL_CATEGORIES.includes(order.delivery_status?.category)} onReassign={() => setStep('local')} />
                 ) : null}
 
                 {step === 'choose' ? (
@@ -197,7 +199,7 @@ function QuickShipPopup({ anchor, order, onClose, onChanged }) {
                                                 key={c.key}
                                                 type="button"
                                                 disabled={disabled}
-                                                onClick={() => { setCarrier(c); setStep('carrier'); setError(null); }}
+                                                onClick={() => { setError(null); if (c.preview) { setDialog(c); } else { setCarrier(c); setStep('carrier'); } }}
                                                 title={!canShip ? 'Vous n’avez pas la permission d’expédier.' : c.reason || ''}
                                                 className="flex w-full items-center gap-2 rounded-xl border border-slate-200 px-2.5 py-2 text-left text-sm hover:border-blue-200 hover:bg-blue-50/50 disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:bg-white"
                                             >
@@ -298,11 +300,37 @@ function QuickShipPopup({ anchor, order, onClose, onChanged }) {
         </div>
     );
 
+    if (dialog) {
+        return (
+            <CarrierSendDialog
+                carrier={dialog}
+                orderIds={[order.id]}
+                onClose={() => { setDialog(null); onClose(); }}
+                onDone={() => onChanged?.()}
+            />
+        );
+    }
+
     return createPortal(body, document.body);
 }
 
-function ShipmentInfo({ order, canReassign, onReassign }) {
+function ShipmentInfo({ order, canReassign, onReassign, onChanged }) {
     const s = order.shipment;
+    const [refreshing, setRefreshing] = useState(false);
+    const [note, setNote] = useState(null);
+    async function refreshOzon() {
+        setRefreshing(true);
+        setNote(null);
+        try {
+            const { data } = await api.post(`/ozon/orders/${order.id}/refresh`);
+            setNote({ ok: true, text: data.message });
+            onChanged?.();
+        } catch (e) {
+            setNote({ ok: false, text: errorMessage(e) });
+        } finally {
+            setRefreshing(false);
+        }
+    }
     if (s) {
         return (
             <div className="space-y-2 text-sm">
@@ -330,6 +358,15 @@ function ShipmentInfo({ order, canReassign, onReassign }) {
                     {s.status_at ? <div className="text-[11px] text-slate-400">{formatDateTime(s.status_at)}</div> : null}
                     {s.last_error ? <div className="mt-1 text-xs text-rose-600">{s.last_error}</div> : null}
                 </div>
+                {s.delivery_note_ref ? <div className="text-xs text-slate-500">BL Ozon : <span className="font-mono font-semibold">{s.delivery_note_ref}</span></div> : null}
+                {s.carrier === 'ozon' ? (
+                    <div>
+                        <button type="button" onClick={refreshOzon} disabled={refreshing} className="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 hover:text-teal-800 disabled:opacity-60">
+                            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} /> Actualiser depuis Ozon
+                        </button>
+                        {note ? <div className={`mt-1 text-xs ${note.ok ? 'text-emerald-700' : 'text-rose-600'}`}>{note.text}</div> : null}
+                    </div>
+                ) : null}
                 {s.label_url ? (
                     <a href={s.label_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700">
                         <Printer className="h-3.5 w-3.5" /> Étiquette <ExternalLink className="h-3 w-3" />

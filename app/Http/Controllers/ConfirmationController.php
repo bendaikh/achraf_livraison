@@ -311,7 +311,7 @@ class ConfirmationController extends Controller
             'discount_total' => (float) $order->discount_total,
             'calls' => $order->calls()->with('user:id,name')->limit(50)->get()->map->toPayload()->values(),
             'discounts' => $order->discounts()->with('user:id,name')->get()->map->toPayload()->values(),
-            'full' => (new OrderResource($order->loadMissing(['deliveryStatus', 'driver', 'assignedUser', 'speedafShipments'])))->resolve(),
+            'full' => (new OrderResource($order->loadMissing(['deliveryStatus', 'driver', 'assignedUser', 'speedafShipments', 'ozonShipments.deliveryNote'])))->resolve(),
         ]);
     }
 }

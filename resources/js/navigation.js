@@ -139,12 +139,12 @@ export const modules = [
     {
         id: 'integrations',
         label: 'Intégrations',
-        to: '/integrations/ozone',
+        to: '/integrations/ozon',
         icon: Plug,
         roles: ['admin'],
         ability: 'settings.manage',
         tabs: [
-            { to: '/integrations/ozone', label: 'Ozone Delivery' },
+            { to: '/integrations/ozon', label: 'Ozon Express' },
             { to: '/integrations/speedaf', label: 'Speedaf' },
             { to: '/integrations/shopify', label: 'Shopify' },
         ],
@@ -180,6 +180,7 @@ export const modules = [
             { to: '/parametres', label: 'Société & tarifs', end: true },
             { to: '/parametres/statuts', label: 'Statuts de livraison' },
             { to: '/parametres/partenaires', label: 'Partenaires logistiques' },
+            { to: '/parametres/transporteurs/ozon', label: 'Transporteurs' },
             { to: '/parametres/equipe', label: 'Équipe & rémunération' },
         ],
     },

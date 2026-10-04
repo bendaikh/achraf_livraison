@@ -10,7 +10,7 @@ export default function IntegrationsBanner() {
                         Optimisez vos livraisons avec nos intégrations
                     </h2>
                     <p className="mt-1 text-sm font-medium text-slate-500">
-                        Connectez Ozone, Speedaf et Shopify pour automatiser vos flux.
+                        Connectez Ozon Express, Speedaf et Shopify pour automatiser vos flux.
                     </p>
                 </div>
 
@@ -24,7 +24,7 @@ export default function IntegrationsBanner() {
                         <path d="M0 54h120" stroke="#94a3b8" strokeWidth="2" opacity="0.4" />
                     </svg>
                     <Link
-                        to="/integrations/ozone"
+                        to="/integrations/ozon"
                         className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 transition hover:bg-blue-700"
                     >
                         Configurer les intégrations

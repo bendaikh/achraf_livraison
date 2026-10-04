@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\OrderResource;
 use App\Models\Order;
+use App\Services\Carriers\AdvancedCarrier;
 use App\Services\Carriers\CarrierException;
+use App\Services\Carriers\CarrierInterface;
 use App\Services\Carriers\CarrierRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -38,6 +40,9 @@ class CarrierController extends Controller
         $data = $request->validate([
             'order_ids' => ['required', 'array', 'min:1', 'max:'.self::MAX_BULK],
             'order_ids.*' => ['integer'],
+            'options' => ['sometimes', 'array'],
+            'options.open' => ['sometimes', 'boolean'],
+            'options.fragile' => ['sometimes', 'boolean'],
         ], ['order_ids.max' => 'Maximum '.self::MAX_BULK.' commandes par envoi.', 'order_ids.required' => 'Sélectionnez au moins une commande.']);
 
         $impl = $this->carriers->get($carrier);
@@ -47,6 +52,9 @@ class CarrierController extends Controller
         $companyId = $request->user()->resolveCompanyId();
         if ($reason = $impl->unavailableReason($companyId)) {
             return response()->json(['message' => $reason], 422);
+        }
+        if ($blocked = $this->bulkBlocked($impl, $companyId, $data['order_ids'])) {
+            return response()->json(['message' => $blocked], 422);
         }
         $orders = Order::query()->whereIn('id', $data['order_ids'])->with('deliveryStatus')->get();
         if ($orders->isEmpty()) {
@@ -65,7 +73,10 @@ class CarrierController extends Controller
                 $toShip[] = $order;
             }
         }
-        $results = array_merge($results, $impl->ship($companyId, $toShip, $request->user()));
+        $shipped = $impl instanceof AdvancedCarrier
+            ? $impl->shipWithOptions($companyId, $toShip, $request->user(), (array) ($data['options'] ?? []))
+            : $impl->ship($companyId, $toShip, $request->user());
+        $results = array_merge($results, $shipped);
 
         $ok = count(array_filter($results, fn ($r) => $r['success']));
         $failed = count($results) - $ok;
@@ -78,10 +89,55 @@ class CarrierController extends Controller
         }
 
         $single = count($data['order_ids']) === 1 && $orders->count() === 1
-            ? (new OrderResource($orders->first()->fresh()->load(['deliveryStatus', 'driver', 'assignedUser', 'speedafShipments'])))->resolve()
+            ? (new OrderResource($orders->first()->fresh()->load(['deliveryStatus', 'driver', 'assignedUser', 'speedafShipments', 'ozonShipments.deliveryNote'])))->resolve()
             : null;
 
         return response()->json(['message' => $message, 'sent' => $ok, 'failed' => $failed, 'results' => $results, 'data' => $single], $ok === 0 ? 422 : 200);
+    }
+
+    /**
+     * POST /api/carriers/{carrier}/preview {order_ids, options} — validation popup (carriers
+     * implementing AdvancedCarrier): what will be sent, blocking errors, existing parcel.
+     */
+    public function preview(Request $request, string $carrier): JsonResponse
+    {
+        $data = $request->validate([
+            'order_ids' => ['required', 'array', 'min:1', 'max:'.self::MAX_BULK],
+            'order_ids.*' => ['integer'],
+            'options' => ['sometimes', 'array'],
+        ]);
+        $impl = $this->carriers->get($carrier);
+        if (! $impl instanceof AdvancedCarrier) {
+            return response()->json(['message' => 'Pas d’aperçu pour cette société de livraison.'], 404);
+        }
+        $companyId = $request->user()->resolveCompanyId();
+        $orders = Order::query()->whereIn('id', $data['order_ids'])->with('deliveryStatus')->get();
+        $rows = [];
+        foreach ($impl->preview($companyId, $orders, (array) ($data['options'] ?? [])) as $row) {
+            $other = $this->carriers->shipmentFor($orders->firstWhere('id', $row['order_id']));
+            if ($other && $other['carrier'] !== $impl->key()) {
+                $row['errors'][] = "Déjà envoyée à {$other['carrier_label']} (n° {$other['tracking']}).";
+                $row['can_send'] = false;
+            }
+            $rows[] = $row;
+        }
+
+        return response()->json([
+            'rows' => $rows,
+            'unavailable' => $impl->unavailableReason($companyId),
+            'bulk_blocked' => $this->bulkBlocked($impl, $companyId, $data['order_ids']),
+        ]);
+    }
+
+    /** Refuses multi-order sends while the carrier keeps its bulk actions disabled. */
+    protected function bulkBlocked(CarrierInterface $impl, int $companyId, array $ids): ?string
+    {
+        if (count(array_unique($ids)) < 2 || ! $impl instanceof AdvancedCarrier) {
+            return null;
+        }
+        $caps = $impl->capabilities($companyId);
+
+        return ($caps['bulk_enabled'] ?? true) ? null : ($caps['bulk_reason'] ?? 'Actions groupées désactivées.');
     }
 
     /** POST /api/carriers/labels {order_ids} — label links for every carrier of the selection. */

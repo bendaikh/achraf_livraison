@@ -247,6 +247,11 @@ class Order extends Model
         return $this->hasMany(SpeedafShipment::class)->orderByDesc('id');
     }
 
+    public function ozonShipments(): HasMany
+    {
+        return $this->hasMany(OzonShipment::class)->orderByDesc('id');
+    }
+
     /** Current Speedaf waybill (latest not cancelled), from the loaded relation when available. */
     public function currentSpeedafShipment(): ?SpeedafShipment
     {
@@ -255,6 +260,14 @@ class Order extends Model
             : $this->speedafShipments()->get();
 
         return $list->first(fn (SpeedafShipment $s) => $s->isActive());
+    }
+
+    /** Current Ozon Express parcel of the order itself (not an SAV exchange), loaded relation first. */
+    public function currentOzonShipment(): ?OzonShipment
+    {
+        $list = $this->relationLoaded('ozonShipments') ? $this->ozonShipments : $this->ozonShipments()->get();
+
+        return $list->first(fn (OzonShipment $s) => $s->isActive() && ! $s->sav_request_id);
     }
 
     public function histories(): HasMany
@@ -409,6 +422,9 @@ class Order extends Model
         }
         if ($this->currentSpeedafShipment()) {
             return 'Déjà envoyée à Speedaf (annulez le colis avant de l’affecter en local).';
+        }
+        if ($this->currentOzonShipment()) {
+            return 'Déjà envoyée à Ozon Express.';
         }
         if ($this->isActiveWithDriver() || $this->isAwaitingAssignment()) {
             return null;

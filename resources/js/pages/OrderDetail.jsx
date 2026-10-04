@@ -13,8 +13,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { ColorBadge, StatusBadge } from '../components/ui/Badge';
 import StatusChangeForm from '../components/orders/StatusChangeForm';
 import SpeedafOrderCard from '../components/orders/SpeedafOrderCard';
+import OzonOrderCard from '../components/ozon/OzonOrderCard';
 
-const HISTORY_KINDS = { confirmation: 'Confirmation', affectation: 'Affectation', produits: 'Produits', expedition: 'Expédition', appel: 'Appel', remise: 'Remise', agent: 'Agent', sav: 'SAV' };
+const HISTORY_KINDS = { confirmation: 'Confirmation', affectation: 'Affectation', produits: 'Produits', expedition: 'Expédition', appel: 'Appel', remise: 'Remise', agent: 'Agent', sav: 'SAV', ozon: 'Ozon Express' };
 
 function Info({ label, children }) {
     return (
@@ -110,7 +111,7 @@ export default function OrderDetail() {
                         <OrderItemsEditor order={order} onChanged={setOrder} />
                     </Card>
 
-                    {can('sav.manage') ? <OrderSavSection order={order} /> : null}
+                    {can('sav.manage') ? <OrderSavSection order={order} onChanged={load} /> : null}
                     <Card title="Missions liées" bodyClassName="p-0">
                         {order.missions?.length ? (
                             <ul className="divide-y divide-slate-100">
@@ -166,7 +167,7 @@ export default function OrderDetail() {
                                             </div>
                                             <div className="text-right text-xs text-slate-400">
                                                 {formatDateTime(h.created_at)}
-                                                {h.user_name ? <div>{h.user_name}</div> : null}
+                                                {h.user_name || h.data?.actor ? <div>{h.user_name || h.data?.actor}</div> : null}
                                             </div>
                                         </li>
                                     ))}
@@ -245,6 +246,8 @@ export default function OrderDetail() {
                         currentDriverId={order.driver_id}
                         onDone={() => load()}
                     />
+
+                    <OzonOrderCard order={order} onChanged={setOrder} />
 
                     <SpeedafOrderCard order={order} onChanged={setOrder} />
 

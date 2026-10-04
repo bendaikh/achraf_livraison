@@ -25,7 +25,7 @@ class SpeedafOrderController extends Controller
 
     protected function orderPayload(Order $order): array
     {
-        return (new OrderResource($order->fresh()->load(['deliveryStatus', 'driver', 'assignedUser', 'shop:id,shop_domain,shop_name', 'missions.driver', 'histories.user', 'speedafShipments'])))->resolve();
+        return (new OrderResource($order->fresh()->load(['deliveryStatus', 'driver', 'assignedUser', 'shop:id,shop_domain,shop_name', 'missions.driver', 'histories.user', 'speedafShipments', 'ozonShipments.deliveryNote'])))->resolve();
     }
 
     /** POST /api/speedaf/orders/send {order_ids: []} — one or many (multi-select). */

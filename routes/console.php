@@ -21,6 +21,21 @@ Schedule::call(fn () => Artisan::call('speedaf:sync'))
     ->withoutOverlapping(25);
 
 /*
+| Ozon Express (T14): bulk tracking of the open parcels (one JSON request per 50 parcels),
+| every 30 minutes, only for companies with the integration enabled and auto-sync on.
+| The official city list is refreshed weekly (public endpoint).
+*/
+Schedule::call(fn () => Artisan::call('ozon:sync'))
+    ->name('ozon-sync')
+    ->everyThirtyMinutes()
+    ->withoutOverlapping(25);
+
+Schedule::call(fn () => Artisan::call('ozon:cities'))
+    ->name('ozon-cities')
+    ->weeklyOn(1, '03:15')
+    ->withoutOverlapping(30);
+
+/*
 | Shopify product catalog (T4): incremental every hour, full pass once a day (inside syncAll).
 | Webhooks products/* + inventory_levels/update keep it live in between.
 */

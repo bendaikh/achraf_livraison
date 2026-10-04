@@ -35,6 +35,7 @@ const Login = lazy(() => import('./pages/Login'));
 const Profile = lazy(() => import('./pages/Profile'));
 const ShopifyIntegration = lazy(() => import('./pages/ShopifyIntegration'));
 const SpeedafIntegration = lazy(() => import('./pages/SpeedafIntegration'));
+const OzonIntegration = lazy(() => import('./pages/OzonIntegration'));
 const WhatsAppInbox = lazy(() => import('./pages/whatsapp/WhatsAppInbox'));
 const WhatsAppAccounts = lazy(() => import('./pages/whatsapp/WhatsAppAccounts'));
 const WhatsAppTemplates = lazy(() => import('./pages/whatsapp/WhatsAppTemplates'));
@@ -235,13 +236,23 @@ export default function AppRouter() {
                         }
                     />
                     <Route
-                        path="integrations/ozone"
+                        path="integrations/ozon"
                         element={
                             <PermissionRoute ability="settings.manage">
-                                <PlaceholderPage />
+                                <OzonIntegration />
                             </PermissionRoute>
                         }
                     />
+                    <Route path="integrations/ozone" element={<Navigate to="/integrations/ozon" replace />} />
+                    <Route
+                        path="parametres/transporteurs/ozon"
+                        element={
+                            <PermissionRoute ability="settings.manage">
+                                <OzonIntegration defaultTab="villes" title="Transporteurs · Ozon Express" />
+                            </PermissionRoute>
+                        }
+                    />
+                    <Route path="parametres/transporteurs" element={<Navigate to="/parametres/transporteurs/ozon" replace />} />
                     <Route
                         path="integrations/speedaf"
                         element={

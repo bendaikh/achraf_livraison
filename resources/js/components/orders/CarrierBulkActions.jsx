@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { CheckCircle2, ExternalLink, Printer, Send, XCircle } from 'lucide-react';
+import { CheckCircle2, ExternalLink, FileText, Printer, Send, Tag, XCircle } from 'lucide-react';
 import api, { errorMessage } from '../../lib/api';
 import useCarriers from '../../hooks/useCarriers';
 import { Alert, Button, Drawer } from '../ui';
+import CarrierSendDialog from '../ozon/CarrierSendDialog';
+import DocumentLinks from '../ozon/DocumentLinks';
 
 /**
  * Commandes multi-select → delivery companies (T11): one « Envoyer à X » per registered
@@ -13,8 +15,42 @@ export default function CarrierBulkActions({ ids, onDone }) {
     const { carriers, can_ship: canShip } = useCarriers();
     const [busy, setBusy] = useState('');
     const [panel, setPanel] = useState(null);
+    const [dialog, setDialog] = useState(null);
+
+    /** Multi-order actions of carriers that keep bulk disabled (Ozon until the test cycle is validated). */
+    const bulkOff = (c) => ids.length > 1 && c.bulk_enabled === false;
+
+    async function deliveryNote(c) {
+        if (!window.confirm(`Créer un BL ${c.label} avec ${ids.length} commande(s) ? Toutes doivent avoir un suivi ${c.label}.`)) return;
+        setBusy(`bl-${c.key}`);
+        try {
+            const { data } = await api.post('/ozon/delivery-notes', { order_ids: ids });
+            setPanel({ type: 'notes', title: `BL ${c.label}`, message: data.message, notes: [data.delivery_note] });
+        } catch (e) {
+            setPanel({ type: 'notes', title: `BL ${c.label}`, error: errorMessage(e), notes: [] });
+        } finally {
+            setBusy('');
+            onDone?.();
+        }
+    }
+
+    async function carrierLabels(c) {
+        setBusy(`lab-${c.key}`);
+        try {
+            const { data } = await api.post('/ozon/labels', { order_ids: ids });
+            setPanel({ type: 'notes', title: `Étiquettes ${c.label}`, message: data.message, notes: data.delivery_notes });
+        } catch (e) {
+            setPanel({ type: 'notes', title: `Étiquettes ${c.label}`, error: errorMessage(e), notes: [] });
+        } finally {
+            setBusy('');
+        }
+    }
 
     async function send(c) {
+        if (c.preview) {
+            setDialog(c);
+            return;
+        }
         if (!window.confirm(`Envoyer ${ids.length} commande(s) à ${c.label} ?`)) return;
         setBusy(c.key);
         try {
@@ -45,11 +81,27 @@ export default function CarrierBulkActions({ ids, onDone }) {
         <>
             {canShip
                 ? carriers.map((c) => (
-                      <Button key={c.key} size="sm" onClick={() => send(c)} disabled={!!busy || !c.available} title={c.reason || ''}>
+                      <Button key={c.key} size="sm" onClick={() => send(c)} disabled={!!busy || !c.available || bulkOff(c)} title={bulkOff(c) ? c.bulk_reason || '' : c.reason || ''}>
                           <Send className="h-3.5 w-3.5" /> {busy === c.key ? 'Envoi…' : `Envoyer à ${c.label}`}
                       </Button>
                   ))
                 : null}
+            {canShip
+                ? carriers
+                      .filter((c) => c.delivery_notes)
+                      .map((c) => (
+                          <Button key={`bl-${c.key}`} size="sm" variant="secondary" onClick={() => deliveryNote(c)} disabled={!!busy || !c.available || bulkOff(c)} title={bulkOff(c) ? c.bulk_reason || '' : c.reason || ''}>
+                              <FileText className="h-3.5 w-3.5" /> {busy === `bl-${c.key}` ? 'Création…' : `Créer BL ${c.label.split(' ')[0]}`}
+                          </Button>
+                      ))
+                : null}
+            {carriers
+                .filter((c) => c.delivery_notes)
+                .map((c) => (
+                    <Button key={`lab-${c.key}`} size="sm" variant="secondary" onClick={() => carrierLabels(c)} disabled={!!busy || bulkOff(c)} title={bulkOff(c) ? c.bulk_reason || '' : ''}>
+                        <Tag className="h-3.5 w-3.5" /> {busy === `lab-${c.key}` ? 'Préparation…' : `Étiquettes ${c.label.split(' ')[0]}`}
+                    </Button>
+                ))}
             <Button size="sm" variant="secondary" onClick={labels} disabled={!!busy}>
                 <Printer className="h-3.5 w-3.5" /> {busy === 'labels' ? 'Préparation…' : 'Imprimer les étiquettes'}
             </Button>
@@ -68,6 +120,26 @@ export default function CarrierBulkActions({ ids, onDone }) {
                                             <div className="font-semibold text-slate-800">{r.reference}</div>
                                             <div className={`text-xs ${r.success ? 'text-slate-500' : 'text-rose-700'}`}>{r.message}</div>
                                         </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : null}
+                        {panel.type === 'notes' && panel.notes?.length ? (
+                            <ul className="space-y-2">
+                                {panel.notes.map((n) => (
+                                    <li key={n.id} className="rounded-xl border border-slate-100 px-3 py-2 text-sm">
+                                        <div className="font-semibold text-slate-800">
+                                            BL <span className="font-mono">{n.ref}</span> · {n.parcels_count} colis
+                                        </div>
+                                        {n.orders?.length ? <div className="text-xs text-slate-500">{n.orders.join(', ')}</div> : null}
+                                        {n.items?.length ? <div className="text-xs text-slate-500">{n.items.map((i) => i.reference).join(', ')}</div> : null}
+                                        {n.state === 'saved' ? (
+                                            <div className="mt-1.5">
+                                                <DocumentLinks documents={n.documents} compact />
+                                            </div>
+                                        ) : (
+                                            <div className="mt-1 text-xs text-amber-700">BL non finalisé : {n.last_error || 'à reprendre depuis Intégrations → Ozon Express.'}</div>
+                                        )}
                                     </li>
                                 ))}
                             </ul>
@@ -95,6 +167,7 @@ export default function CarrierBulkActions({ ids, onDone }) {
                     </div>
                 ) : null}
             </Drawer>
+            {dialog ? <CarrierSendDialog carrier={dialog} orderIds={ids} onClose={() => setDialog(null)} onDone={() => onDone?.()} /> : null}
         </>
     );
 }

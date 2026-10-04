@@ -4,14 +4,16 @@ namespace App\Services;
 
 use App\Models\Closing;
 use App\Models\ConfirmationStatus;
+use App\Models\DeliveryStatus;
 use App\Models\Mission;
 use App\Models\Order;
+use App\Models\OzonShipment;
 use App\Models\Setting;
 use App\Models\SpeedafShipment;
+use App\Models\User;
 use App\Services\Catalog\CatalogLookup;
 use App\Support\Catalog;
 use App\Support\Permissions;
-use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -70,14 +72,16 @@ class CentreService
     /** Confirmed, not shipped to a carrier, waiting for (re)assignment / preparation. */
     public function toProcess(): int
     {
-        return Order::query()->awaitingAssignment()->whereDoesntHave('speedafShipments', $this->activeShipment())->count();
+        return Order::query()->awaitingAssignment()->whereDoesntHave('speedafShipments', $this->activeShipment())
+            ->whereDoesntHave('ozonShipments', $this->activeOzon())->count();
     }
 
     /** Parcels currently with an external carrier (sent, not delivered / returned / cancelled). */
     public function atCarriers(): int
     {
         return Order::query()
-            ->whereHas('speedafShipments', fn ($q) => $q->where('state', SpeedafShipment::STATE_CREATED))
+            ->where(fn ($w) => $w->whereHas('speedafShipments', fn ($q) => $q->where('state', SpeedafShipment::STATE_CREATED))
+                ->orWhereHas('ozonShipments', fn ($q) => $q->where('state', OzonShipment::STATE_CREATED)->whereNull('sav_request_id')))
             ->where(fn ($q) => $q->whereNull('delivery_status')->orWhereNotIn('delivery_status', $this->codes(self::CLOSED_CATEGORIES)))
             ->count();
     }
@@ -154,6 +158,7 @@ class CentreService
             ->where(fn ($q) => $q->whereNull('delivery_status')->orWhereIn('delivery_status', $this->codes(['avant_livraison'])))
             ->whereNotIn('confirmation_status', ConfirmationStatus::codesOfType(ConfirmationStatus::TYPE_CANCELLED) ?: ['__none__'])
             ->whereDoesntHave('speedafShipments', $this->activeShipment())
+            ->whereDoesntHave('ozonShipments', $this->activeOzon())
             ->whereNull('driver_id')
             ->chunkById(500, function ($orders) use ($lookup, &$ids) {
                 $lookup->prime($orders);
@@ -167,6 +172,11 @@ class CentreService
         return $ids;
     }
 
+    protected function activeOzon(): \Closure
+    {
+        return fn ($q) => $q->where('state', '!=', OzonShipment::STATE_CANCELLED)->whereNull('sav_request_id');
+    }
+
     protected function activeShipment(): \Closure
     {
         return fn ($q) => $q->where('state', '!=', SpeedafShipment::STATE_CANCELLED);
@@ -174,6 +184,6 @@ class CentreService
 
     protected function codes(array $categories): array
     {
-        return \App\Models\DeliveryStatus::codesForCategories($categories) ?: ['__none__'];
+        return DeliveryStatus::codesForCategories($categories) ?: ['__none__'];
     }
 }
