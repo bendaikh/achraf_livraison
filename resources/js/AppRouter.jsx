@@ -41,6 +41,10 @@ const WhatsAppInbox = lazy(() => import('./pages/whatsapp/WhatsAppInbox'));
 const WhatsAppAccounts = lazy(() => import('./pages/whatsapp/WhatsAppAccounts'));
 const WhatsAppTemplates = lazy(() => import('./pages/whatsapp/WhatsAppTemplates'));
 const WhatsAppQuickReplies = lazy(() => import('./pages/whatsapp/WhatsAppQuickReplies'));
+const AutomationsList = lazy(() => import('./pages/automations/AutomationsList'));
+const AutomationBuilder = lazy(() => import('./pages/automations/AutomationBuilder'));
+const AutomationRuns = lazy(() => import('./pages/automations/AutomationRuns'));
+const AutomationTest = lazy(() => import('./pages/automations/AutomationTest'));
 
 function PageFallback() {
     return (
@@ -283,6 +287,46 @@ export default function AppRouter() {
                         element={
                             <PermissionRoute ability="settings.manage">
                                 <ShopifyIntegration />
+                            </PermissionRoute>
+                        }
+                    />
+                    <Route
+                        path="automations"
+                        element={
+                            <PermissionRoute ability="automations.view">
+                                <AutomationsList />
+                            </PermissionRoute>
+                        }
+                    />
+                    <Route
+                        path="automations/runs"
+                        element={
+                            <PermissionRoute ability="automations.view">
+                                <AutomationRuns />
+                            </PermissionRoute>
+                        }
+                    />
+                    <Route
+                        path="automations/new"
+                        element={
+                            <PermissionRoute ability="automations.manage">
+                                <AutomationBuilder />
+                            </PermissionRoute>
+                        }
+                    />
+                    <Route
+                        path="automations/:id/edit"
+                        element={
+                            <PermissionRoute ability="automations.manage">
+                                <AutomationBuilder />
+                            </PermissionRoute>
+                        }
+                    />
+                    <Route
+                        path="automations/:id/test"
+                        element={
+                            <PermissionRoute ability="automations.test">
+                                <AutomationTest />
                             </PermissionRoute>
                         }
                     />

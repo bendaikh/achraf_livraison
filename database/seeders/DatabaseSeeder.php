@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
         $this->call(ConfirmationStatusSeeder::class);
         $this->call(WhatsAppQuickReplySeeder::class);
         $this->call(DeliveryStatusSeeder::class);
+        $this->call(AutomationTemplateSeeder::class);
 
         User::query()->updateOrCreate(
             ['email' => 'superadmin@lavfast-flow.com'],

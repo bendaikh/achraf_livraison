@@ -6,6 +6,7 @@ import {
     Bike,
     CalendarCheck,
     Plug,
+    Workflow,
     Users,
     Settings,
     Package,
@@ -148,6 +149,18 @@ export const modules = [
             { to: '/integrations/sift', label: 'Sift.ma' },
             { to: '/integrations/speedaf', label: 'Speedaf' },
             { to: '/integrations/shopify', label: 'Shopify' },
+        ],
+    },
+    {
+        id: 'automations',
+        label: 'Automatisations',
+        to: '/automations',
+        icon: Workflow,
+        roles: ['admin'],
+        ability: 'automations.view',
+        tabs: [
+            { to: '/automations', label: 'Scénarios', end: true },
+            { to: '/automations/runs', label: 'Exécutions' },
         ],
     },
     {

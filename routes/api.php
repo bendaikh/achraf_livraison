@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\AutomationController;
+use App\Http\Controllers\Api\AutomationRunController;
 use App\Http\Controllers\Api\CarrierController;
 use App\Http\Controllers\Api\CentreController;
 use App\Http\Controllers\Api\ClientController;
@@ -218,4 +220,27 @@ Route::middleware(['web', 'auth', 'admin.access'])->group(function () {
     Route::get('team/commissions', [TeamController::class, 'commissions']);
     Route::post('team/commissions/transition', [TeamController::class, 'transition'])->middleware('can:commissions.manage');
     Route::post('team/commissions/monthly', [TeamController::class, 'monthly'])->middleware('can:commissions.manage');
+
+    // Automatisations (moteur générique QUAND → SI → ALORS → ATTENDRE → ACTIONS)
+    Route::middleware('can:automations.view')->group(function () {
+        Route::get('automations/catalog', [AutomationController::class, 'catalog']);
+        Route::get('automations/stats', [AutomationController::class, 'stats']);
+        Route::get('automations/templates', [AutomationController::class, 'templates']);
+        Route::get('automations', [AutomationController::class, 'index']);
+        Route::get('automations/{automation}', [AutomationController::class, 'show']);
+        Route::get('automation-runs', [AutomationRunController::class, 'index']);
+        Route::get('automation-runs/{run}', [AutomationRunController::class, 'show']);
+    });
+    Route::middleware('can:automations.manage')->group(function () {
+        Route::post('automations', [AutomationController::class, 'store']);
+        Route::put('automations/{automation}', [AutomationController::class, 'update']);
+        Route::post('automations/{automation}/duplicate', [AutomationController::class, 'duplicate']);
+        Route::post('automations/{automation}/activate', [AutomationController::class, 'activate']);
+        Route::post('automations/{automation}/pause', [AutomationController::class, 'pause']);
+        Route::post('automations/{automation}/archive', [AutomationController::class, 'archive']);
+        Route::post('automations/templates/install', [AutomationController::class, 'installTemplate']);
+        Route::post('automations/{automation}/run', [AutomationController::class, 'runManual']);
+        Route::post('automation-runs/{run}/retry', [AutomationRunController::class, 'retry']);
+    });
+    Route::post('automations/{automation}/test', [AutomationController::class, 'test'])->middleware('can:automations.test');
 });

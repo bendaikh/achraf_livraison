@@ -29,5 +29,8 @@ return [
         'sav.manage' => ['label' => 'Créer et suivre les retours / échanges', 'roles' => ['admin', 'user']],
         'sav.depot' => ['label' => 'Réceptionner au dépôt et clôturer les retours / échanges', 'roles' => ['admin']],
         'products.sync' => ['label' => 'Synchroniser le catalogue Shopify', 'roles' => ['admin']],
+        'automations.view' => ['label' => 'Voir les automatisations et les logs', 'roles' => ['admin']],
+        'automations.manage' => ['label' => 'Créer / modifier / activer / archiver des automatisations', 'roles' => ['admin']],
+        'automations.test' => ['label' => 'Tester une automatisation (simulation)', 'roles' => ['admin']],
     ],
 ];
