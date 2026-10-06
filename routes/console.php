@@ -61,3 +61,21 @@ Schedule::call(fn () => Artisan::call('sift:sync'))
     ->name('sift-sync')
     ->everyThirtyMinutes()
     ->withoutOverlapping(25);
+
+/*
+| Queue worker for Automations + default (shared hosting).
+| Hostinger disables proc_open, so Schedule::command cannot spawn a subprocess.
+| schedule:run cron already runs every minute; this drains jobs with a bounded runtime.
+*/
+Schedule::call(function () {
+    Artisan::call('queue:work', [
+        '--queue' => 'automations,default',
+        '--stop-when-empty' => true,
+        '--max-time' => 55,
+        '--sleep' => 1,
+        '--tries' => 3,
+    ]);
+})
+    ->name('queue-worker-automations')
+    ->everyMinute()
+    ->withoutOverlapping(2);
