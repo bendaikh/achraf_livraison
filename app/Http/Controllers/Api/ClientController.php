@@ -7,10 +7,15 @@ use App\Models\ClientBlock;
 use App\Models\ClientGroup;
 use App\Models\ClientGroupMember;
 use App\Models\ClientNote;
+use App\Models\ClientVehicle;
+use App\Models\Company;
 use App\Models\ConfirmationStatus;
 use App\Models\Order;
 use App\Models\OrderCall;
+use App\Models\WhatsAppCampaignRecipient;
 use App\Models\WhatsAppConversation;
+use App\Services\Campaigns\ConsentService;
+use App\Services\Campaigns\TagService;
 use App\Services\Clients\ClientService;
 use App\Services\WhatsApp\PhoneNormalizer;
 use Illuminate\Http\JsonResponse;
@@ -19,7 +24,11 @@ use Illuminate\Http\Request;
 /** T9 — Clients (aggregated from orders by phone), blocks, notes, segments and manual groups. */
 class ClientController extends Controller
 {
-    public function __construct(private ClientService $clients) {}
+    public function __construct(
+        private ClientService $clients,
+        private TagService $tags,
+        private ConsentService $consent,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -59,10 +68,14 @@ class ClientController extends Controller
         ]);
     }
 
-    public function show(string $key): JsonResponse
+    public function show(Request $request, string $key): JsonResponse
     {
         $row = $this->clients->find($key);
         abort_unless($row, 404, 'Client introuvable.');
+
+        $companyId = (int) $request->user()->resolveCompanyId();
+        $company = Company::query()->find($companyId);
+        $vehiclesEnabled = $company?->vehiclesEnabled() ?? false;
 
         $orders = Order::query()->where('phone_key', $key)->latest('id')->get();
         $orderIds = $orders->pluck('id');
@@ -95,6 +108,34 @@ class ClientController extends Controller
                 ->map(fn ($n) => ['id' => $n->id, 'body' => $n->body, 'user_name' => $n->user?->name, 'created_at' => $n->created_at?->toIso8601String()])->values(),
             'blocks' => ClientBlock::query()->where('phone_key', $key)->with('blocker:id,name', 'unblocker:id,name')->latest('blocked_at')->get()->map->toPayload()->values(),
             'groups' => ClientGroup::query()->whereIn('id', ClientGroupMember::query()->where('phone_key', $key)->select('client_group_id'))->get(['id', 'name', 'color']),
+            'tags' => $this->tags->tagsForClient($companyId, $key)->map(fn ($t) => [
+                'id' => $t->id, 'name' => $t->name, 'color' => $t->color,
+            ])->values(),
+            'whatsapp_consent' => $this->consent->getOrUnknown($companyId, $key)->toApiArray(),
+            'vehicles' => $vehiclesEnabled
+                ? ClientVehicle::query()->forCompany($companyId)->where('phone_key', $key)
+                    ->orderByDesc('is_primary')->orderBy('id')->get()->map->toApiArray()->values()
+                : [],
+            'vehicles_enabled' => $vehiclesEnabled,
+            'campaigns' => WhatsAppCampaignRecipient::query()
+                ->where('company_id', $companyId)
+                ->where('phone_key', $key)
+                ->whereNotIn('status', [WhatsAppCampaignRecipient::STATUS_EXCLUDED])
+                ->with('campaign:id,name,whatsapp_template_id')
+                ->latest('id')
+                ->limit(50)
+                ->get()
+                ->map(fn (WhatsAppCampaignRecipient $r) => [
+                    'id' => $r->id,
+                    'campaign_id' => $r->whatsapp_campaign_id,
+                    'campaign_name' => $r->campaign?->name,
+                    'status' => $r->status,
+                    'sent_at' => $r->sent_at?->toIso8601String(),
+                    'delivered_at' => $r->delivered_at?->toIso8601String(),
+                    'read_at' => $r->read_at?->toIso8601String(),
+                    'error_message' => $r->error_message,
+                    'preview_body' => $r->preview_body,
+                ])->values(),
         ]);
     }
 

@@ -41,6 +41,9 @@ const WhatsAppInbox = lazy(() => import('./pages/whatsapp/WhatsAppInbox'));
 const WhatsAppAccounts = lazy(() => import('./pages/whatsapp/WhatsAppAccounts'));
 const WhatsAppTemplates = lazy(() => import('./pages/whatsapp/WhatsAppTemplates'));
 const WhatsAppQuickReplies = lazy(() => import('./pages/whatsapp/WhatsAppQuickReplies'));
+const CampaignsList = lazy(() => import('./pages/campaigns/CampaignsList'));
+const CampaignWizard = lazy(() => import('./pages/campaigns/CampaignWizard'));
+const CampaignDetail = lazy(() => import('./pages/campaigns/CampaignDetail'));
 const AutomationsList = lazy(() => import('./pages/automations/AutomationsList'));
 const AutomationBuilder = lazy(() => import('./pages/automations/AutomationBuilder'));
 const AutomationRuns = lazy(() => import('./pages/automations/AutomationRuns'));
@@ -189,6 +192,38 @@ export default function AppRouter() {
                         element={
                             <PermissionRoute ability="whatsapp.access">
                                 <WhatsAppQuickReplies />
+                            </PermissionRoute>
+                        }
+                    />
+                    <Route
+                        path="whatsapp/campagnes"
+                        element={
+                            <PermissionRoute ability="campaigns.view">
+                                <CampaignsList />
+                            </PermissionRoute>
+                        }
+                    />
+                    <Route
+                        path="whatsapp/campagnes/new"
+                        element={
+                            <PermissionRoute ability="campaigns.manage">
+                                <CampaignWizard />
+                            </PermissionRoute>
+                        }
+                    />
+                    <Route
+                        path="whatsapp/campagnes/:id/edit"
+                        element={
+                            <PermissionRoute ability="campaigns.manage">
+                                <CampaignWizard />
+                            </PermissionRoute>
+                        }
+                    />
+                    <Route
+                        path="whatsapp/campagnes/:id"
+                        element={
+                            <PermissionRoute ability="campaigns.view">
+                                <CampaignDetail />
                             </PermissionRoute>
                         }
                     />

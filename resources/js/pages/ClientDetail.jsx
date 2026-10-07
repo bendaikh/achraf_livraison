@@ -37,6 +37,8 @@ export default function ClientDetail() {
     const [msg, setMsg] = useState(null);
     const [blocking, setBlocking] = useState(null);
     const [note, setNote] = useState('');
+    const [tagName, setTagName] = useState('');
+    const [vehicleForm, setVehicleForm] = useState({ brand: '', model: '', year: '', is_primary: true });
 
     const load = useCallback(async () => {
         try {
@@ -84,6 +86,11 @@ export default function ClientDetail() {
                         {d.groups.map((g) => (
                             <Pill key={g.id} color={g.color}>
                                 {g.name}
+                            </Pill>
+                        ))}
+                        {(d.tags || []).map((t) => (
+                            <Pill key={t.id} color={t.color || '#2563eb'}>
+                                {t.name}
                             </Pill>
                         ))}
                     </div>
@@ -225,6 +232,88 @@ export default function ClientDetail() {
                             <p className="text-sm text-slate-400">Aucune conversation {wa ? 'liée à ce numéro' : ''}.</p>
                         )}
                     </Card>
+                    <Card title="Tags" bodyClassName="p-3">
+                        <div className="mb-2 flex flex-wrap gap-1.5">
+                            {(d.tags || []).length ? (d.tags || []).map((t) => (
+                                <span key={t.id} className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold" style={{ background: `${t.color || '#2563eb'}18`, color: t.color || '#2563eb' }}>
+                                    {t.name}
+                                    {can('clients.tags') ? (
+                                        <button type="button" className="opacity-60 hover:opacity-100" onClick={() => run(() => api.delete(`/clients/${key}/tags/${t.id}`))}>×</button>
+                                    ) : null}
+                                </span>
+                            )) : <p className="text-sm text-slate-400">Aucun tag.</p>}
+                        </div>
+                        {can('clients.tags') ? (
+                            <div className="flex gap-2">
+                                <input className="flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-sm" placeholder="Nouveau tag" value={tagName} onChange={(e) => setTagName(e.target.value)} />
+                                <Button size="sm" disabled={!tagName.trim()} onClick={() => run(() => api.post(`/clients/${key}/tags`, { name: tagName })).then((ok) => ok && setTagName(''))}>
+                                    Ajouter
+                                </Button>
+                            </div>
+                        ) : null}
+                    </Card>
+
+                    <Card title="Consentement WhatsApp marketing" bodyClassName="p-3">
+                        <p className="mb-2 text-sm">
+                            Statut : <strong>{d.whatsapp_consent?.status || 'unknown'}</strong>
+                            {d.whatsapp_consent?.source ? <span className="text-xs text-slate-400"> · {d.whatsapp_consent.source}</span> : null}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                            {['allowed', 'refused', 'unknown'].map((s) => (
+                                <Button key={s} size="sm" variant={d.whatsapp_consent?.status === s ? 'primary' : 'secondary'} onClick={() => run(() => api.put(`/clients/${key}/whatsapp-consent`, { status: s, source: 'manual' }))}>
+                                    {s === 'allowed' ? 'Autorisé' : s === 'refused' ? 'Refusé / désinscrit' : 'Inconnu'}
+                                </Button>
+                            ))}
+                        </div>
+                    </Card>
+
+                    {d.vehicles_enabled ? (
+                        <Card title="Véhicules" bodyClassName="p-3">
+                            <ul className="mb-3 space-y-2 text-sm">
+                                {(d.vehicles || []).map((v) => (
+                                    <li key={v.id} className="flex items-start justify-between rounded-xl border border-slate-100 px-3 py-2">
+                                        <div>
+                                            <div className="font-semibold text-slate-800">{[v.brand, v.model, v.year].filter(Boolean).join(' ')}{v.is_primary ? ' · principal' : ''}</div>
+                                            <div className="text-xs text-slate-400">{[v.generation, v.phase, v.body_type, v.plate].filter(Boolean).join(' · ') || '—'}</div>
+                                        </div>
+                                        <button type="button" className="text-xs text-rose-600" onClick={() => run(() => api.delete(`/clients/${key}/vehicles/${v.id}`))}>Suppr.</button>
+                                    </li>
+                                ))}
+                                {(d.vehicles || []).length === 0 ? <p className="text-sm text-slate-400">Aucun véhicule.</p> : null}
+                            </ul>
+                            <div className="grid grid-cols-2 gap-2">
+                                <input className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm" placeholder="Marque" value={vehicleForm.brand} onChange={(e) => setVehicleForm({ ...vehicleForm, brand: e.target.value })} />
+                                <input className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm" placeholder="Modèle" value={vehicleForm.model} onChange={(e) => setVehicleForm({ ...vehicleForm, model: e.target.value })} />
+                                <input className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm" placeholder="Année" value={vehicleForm.year} onChange={(e) => setVehicleForm({ ...vehicleForm, year: e.target.value })} />
+                                <Button size="sm" onClick={() => run(() => api.post(`/clients/${key}/vehicles`, { ...vehicleForm, year: vehicleForm.year ? Number(vehicleForm.year) : null })).then((ok) => ok && setVehicleForm({ brand: '', model: '', year: '', is_primary: true }))}>
+                                    Ajouter
+                                </Button>
+                            </div>
+                        </Card>
+                    ) : null}
+
+                    <Card title="Campagnes WhatsApp" bodyClassName="p-3">
+                        {(d.campaigns || []).length ? (
+                            <ul className="space-y-2 text-sm">
+                                {d.campaigns.map((cp) => (
+                                    <li key={cp.id} className="border-b border-slate-50 pb-1.5 last:border-0">
+                                        <Link to={`/whatsapp/campagnes/${cp.campaign_id}`} className="font-semibold text-emerald-700 hover:underline">
+                                            {cp.campaign_name || `Campagne #${cp.campaign_id}`}
+                                        </Link>
+                                        <div className="text-xs text-slate-500">
+                                            {cp.status} · envoyé {formatDateTime(cp.sent_at)}
+                                            {cp.delivered_at ? ` · délivré ${formatDateTime(cp.delivered_at)}` : ''}
+                                            {cp.read_at ? ` · lu ${formatDateTime(cp.read_at)}` : ''}
+                                        </div>
+                                        {cp.error_message ? <div className="text-xs text-rose-600">{cp.error_message}</div> : null}
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-sm text-slate-400">Aucune campagne envoyée à ce client.</p>
+                        )}
+                    </Card>
+
                     <Card title="Notes internes" bodyClassName="p-3">
                         <div className="space-y-2">
                             <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ajouter une note visible par l’équipe…" aria-label="Note interne" />

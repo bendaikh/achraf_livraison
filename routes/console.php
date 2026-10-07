@@ -69,7 +69,7 @@ Schedule::call(fn () => Artisan::call('sift:sync'))
 */
 Schedule::call(function () {
     Artisan::call('queue:work', [
-        '--queue' => 'automations,default',
+        '--queue' => 'whatsapp-campaigns,automations,default',
         '--stop-when-empty' => true,
         '--max-time' => 55,
         '--sleep' => 1,
@@ -77,5 +77,15 @@ Schedule::call(function () {
     ]);
 })
     ->name('queue-worker-automations')
+    ->everyMinute()
+    ->withoutOverlapping(2);
+
+/*
+| Launch WhatsApp campaigns whose scheduled_at has passed (timezone stored as UTC).
+*/
+Schedule::call(function () {
+    Artisan::call('campaigns:dispatch-scheduled');
+})
+    ->name('whatsapp-campaigns-scheduled')
     ->everyMinute()
     ->withoutOverlapping(2);

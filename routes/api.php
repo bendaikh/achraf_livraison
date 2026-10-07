@@ -2,6 +2,11 @@
 
 use App\Http\Controllers\Api\AutomationController;
 use App\Http\Controllers\Api\AutomationRunController;
+use App\Http\Controllers\Api\Campaigns\AudienceSegmentController;
+use App\Http\Controllers\Api\Campaigns\ClientConsentController;
+use App\Http\Controllers\Api\Campaigns\ClientTagController;
+use App\Http\Controllers\Api\Campaigns\ClientVehicleController;
+use App\Http\Controllers\Api\Campaigns\WhatsAppCampaignController;
 use App\Http\Controllers\Api\CarrierController;
 use App\Http\Controllers\Api\CentreController;
 use App\Http\Controllers\Api\ClientController;
@@ -220,6 +225,62 @@ Route::middleware(['web', 'auth', 'admin.access'])->group(function () {
     Route::get('team/commissions', [TeamController::class, 'commissions']);
     Route::post('team/commissions/transition', [TeamController::class, 'transition'])->middleware('can:commissions.manage');
     Route::post('team/commissions/monthly', [TeamController::class, 'monthly'])->middleware('can:commissions.manage');
+
+    // WhatsApp Campaigns (module séparé des Automatisations)
+    Route::middleware('can:campaigns.view')->prefix('whatsapp/campaigns')->group(function () {
+        Route::get('stats', [WhatsAppCampaignController::class, 'stats']);
+        Route::get('meta', [WhatsAppCampaignController::class, 'meta']);
+        Route::get('search-clients', [WhatsAppCampaignController::class, 'searchClients']);
+        Route::post('audience/preview', [WhatsAppCampaignController::class, 'audiencePreview']);
+        Route::post('preview-message', [WhatsAppCampaignController::class, 'previewMessage']);
+        Route::get('accounts/{account}/templates', [WhatsAppCampaignController::class, 'templatesForAccount']);
+        Route::get('/', [WhatsAppCampaignController::class, 'index']);
+        Route::get('{campaign}', [WhatsAppCampaignController::class, 'show']);
+        Route::get('{campaign}/recipients', [WhatsAppCampaignController::class, 'recipients']);
+        Route::get('{campaign}/confirm-summary', [WhatsAppCampaignController::class, 'confirmSummary']);
+    });
+    Route::middleware('can:campaigns.manage')->prefix('whatsapp/campaigns')->group(function () {
+        Route::post('/', [WhatsAppCampaignController::class, 'store']);
+        Route::put('{campaign}', [WhatsAppCampaignController::class, 'update']);
+        Route::post('{campaign}/duplicate', [WhatsAppCampaignController::class, 'duplicate']);
+        Route::post('{campaign}/archive', [WhatsAppCampaignController::class, 'archive']);
+    });
+    Route::middleware('can:campaigns.send')->prefix('whatsapp/campaigns')->group(function () {
+        Route::post('{campaign}/send', [WhatsAppCampaignController::class, 'send']);
+        Route::post('{campaign}/pause', [WhatsAppCampaignController::class, 'pause']);
+        Route::post('{campaign}/resume', [WhatsAppCampaignController::class, 'resume']);
+        Route::post('{campaign}/retry-failed', [WhatsAppCampaignController::class, 'retryFailed']);
+    });
+
+    Route::middleware('can:clients.tags')->group(function () {
+        Route::get('client-tags', [ClientTagController::class, 'index']);
+        Route::post('client-tags', [ClientTagController::class, 'store']);
+        Route::put('client-tags/{tag}', [ClientTagController::class, 'update']);
+        Route::delete('client-tags/{tag}', [ClientTagController::class, 'destroy']);
+        Route::get('clients/{key}/tags', [ClientTagController::class, 'forClient'])->where('key', '[0-9]+');
+        Route::post('clients/{key}/tags', [ClientTagController::class, 'assign'])->where('key', '[0-9]+');
+        Route::delete('clients/{key}/tags/{tag}', [ClientTagController::class, 'remove'])->where('key', '[0-9]+');
+        Route::put('clients/{key}/tags', [ClientTagController::class, 'sync'])->where('key', '[0-9]+');
+    });
+
+    Route::middleware('can:clients.view')->group(function () {
+        Route::get('clients/{key}/vehicles', [ClientVehicleController::class, 'index'])->where('key', '[0-9]+');
+        Route::post('clients/{key}/vehicles', [ClientVehicleController::class, 'store'])->where('key', '[0-9]+');
+        Route::put('clients/{key}/vehicles/{vehicle}', [ClientVehicleController::class, 'update'])->where('key', '[0-9]+');
+        Route::delete('clients/{key}/vehicles/{vehicle}', [ClientVehicleController::class, 'destroy'])->where('key', '[0-9]+');
+        Route::get('clients/{key}/whatsapp-consent', [ClientConsentController::class, 'show'])->where('key', '[0-9]+');
+        Route::put('clients/{key}/whatsapp-consent', [ClientConsentController::class, 'update'])->where('key', '[0-9]+');
+    });
+
+    Route::middleware('can:campaigns.view')->group(function () {
+        Route::get('audience-segments', [AudienceSegmentController::class, 'index']);
+        Route::get('audience-segments/{segment}/count', [AudienceSegmentController::class, 'count']);
+    });
+    Route::middleware('can:campaigns.manage')->group(function () {
+        Route::post('audience-segments', [AudienceSegmentController::class, 'store']);
+        Route::put('audience-segments/{segment}', [AudienceSegmentController::class, 'update']);
+        Route::delete('audience-segments/{segment}', [AudienceSegmentController::class, 'destroy']);
+    });
 
     // Automatisations (moteur générique QUAND → SI → ALORS → ATTENDRE → ACTIONS)
     Route::middleware('can:automations.view')->group(function () {

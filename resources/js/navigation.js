@@ -132,6 +132,7 @@ export const modules = [
         ability: 'whatsapp.access',
         tabs: [
             { to: '/whatsapp', label: 'Messagerie', end: true },
+            { to: '/whatsapp/campagnes', label: 'Campagnes', ability: 'campaigns.view' },
             { to: '/whatsapp/comptes', label: 'Comptes / Numéros', ability: 'settings.manage' },
             { to: '/whatsapp/templates', label: 'Templates' },
             { to: '/whatsapp/reponses-rapides', label: 'Réponses rapides' },

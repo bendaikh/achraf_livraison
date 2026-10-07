@@ -2,8 +2,10 @@
 
 namespace App\Services\Automations\Bootstrap;
 
+use App\Services\Automations\Actions\AddClientTagAction;
 use App\Services\Automations\Actions\AddNoteAction;
 use App\Services\Automations\Actions\AssignAgentAction;
+use App\Services\Automations\Actions\RemoveClientTagAction;
 use App\Services\Automations\Actions\CarrierCreateParcelAction;
 use App\Services\Automations\Actions\CarrierRefreshTrackingAction;
 use App\Services\Automations\Actions\ChangeStatusAction;
@@ -156,6 +158,8 @@ class RegisterBuiltinAutomations
         $registry->registerAction(new WebhookExternalAction);
         $registry->registerAction(new WhatsAppSendMessageAction);
         $registry->registerAction(new ShopifySyncOrderAction);
+        $registry->registerAction(new AddClientTagAction);
+        $registry->registerAction(new RemoveClientTagAction);
 
         foreach ([['speedaf', 'Speedaf'], ['sift', 'Sift.ma'], ['ozon', 'Ozon Express']] as [$key, $label]) {
             $registry->registerAction(new CarrierCreateParcelAction($key, $label));

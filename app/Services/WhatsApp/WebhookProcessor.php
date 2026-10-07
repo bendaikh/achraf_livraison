@@ -6,6 +6,7 @@ use App\Models\WhatsAppAccount;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
 use App\Models\WhatsAppWebhookEvent;
+use App\Services\Campaigns\CampaignStatusUpdater;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -14,6 +15,7 @@ class WebhookProcessor
     public function __construct(
         protected ConversationOrderLinker $linker,
         protected WhatsAppCloudClient $client,
+        protected CampaignStatusUpdater $campaignStatuses,
     ) {}
 
     public function process(array $payload): void
@@ -216,6 +218,8 @@ class WebhookProcessor
             'error_code' => data_get($error, 'code'),
             'error_message' => data_get($error, 'title') ?: data_get($error, 'message'),
         ])->save();
+
+        $this->campaignStatuses->syncFromMessage($message->fresh());
     }
 
     protected function parseMessageContent(array $message): array
