@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Bike, ChevronLeft, ChevronRight, Plus, RotateCcw, Search, SlidersHorizontal, UserCheck, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, RotateCcw, Search, SlidersHorizontal, X } from 'lucide-react';
 import api, { errorMessage } from '../lib/api';
 import { useMeta } from '../context/MetaContext';
 import useUserPreference from '../hooks/useUserPreference';
@@ -8,13 +8,10 @@ import useSelection from '../hooks/useSelection';
 import { Alert, Button, Card, Checkbox, EmptyState, Input, PageHeader, Select, Spinner } from '../components/ui';
 import ColumnSelector from '../components/orders/ColumnSelector';
 import OrderForm from '../components/orders/OrderForm';
-import CarrierBulkActions from '../components/orders/CarrierBulkActions';
 import QuickShip from '../components/orders/QuickShip';
 import useCarriers from '../hooks/useCarriers';
-import LocalAssignDrawer from '../components/orders/LocalAssignDrawer';
-import AgentAssignDrawer from '../components/orders/AgentAssignDrawer';
 import KanbanBoard from '../components/orders/KanbanBoard';
-import StatusMoveDialog from '../components/orders/StatusMoveDialog';
+import BulkActionBar from '../components/delivery/BulkActionBar';
 import { useAuth } from '../contexts/AuthContext';
 import { COLUMN_PREFS_KEY, DEFAULT_COLUMN_PREFS, ORDER_COLUMNS, ProductPhoto, renderCell } from '../components/orders/orderColumns';
 
@@ -56,8 +53,6 @@ export default function Orders() {
     const [prefs, setPrefs] = useUserPreference(COLUMN_PREFS_KEY, DEFAULT_COLUMN_PREFS);
     const selection = useSelection();
     const { can } = useAuth();
-    const [assigning, setAssigning] = useState(false);
-    const [assigningAgent, setAssigningAgent] = useState(false);
     // T12 — Tableau | Kanban (remembered per browser)
     const [view, setViewState] = useState(() => (typeof window !== 'undefined' && window.localStorage.getItem('lavfast:orders-view')) || 'table');
     const setView = (v) => {
@@ -65,7 +60,6 @@ export default function Orders() {
         setViewState(v);
     };
     const [reloadKey, setReloadKey] = useState(0);
-    const [bulkMove, setBulkMove] = useState(null);
     const refreshAll = () => {
         load();
         setReloadKey((k) => k + 1);
@@ -332,52 +326,13 @@ export default function Orders() {
             </Card>
 
             {selection.count > 0 ? (
-                <div className="sticky top-16 z-20 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm shadow-sm">
-                    <span className="font-semibold text-blue-800">{selection.count} commande(s) sélectionnée(s)</span>
-                    <div className="flex flex-wrap items-center gap-2">
-                        {can('orders.assign_driver') ? (
-                            <Button size="sm" onClick={() => setAssigning(true)}>
-                                <Bike className="h-3.5 w-3.5" /> Affecter à livraison locale
-                            </Button>
-                        ) : null}
-                        {can('orders.assign_agent') ? (
-                            <Button size="sm" variant="secondary" onClick={() => setAssigningAgent(true)}>
-                                <UserCheck className="h-3.5 w-3.5" /> Assigner à un agent
-                            </Button>
-                        ) : null}
-                        <Select
-                            value=""
-                            onChange={(e) => {
-                                const st = meta.statuses.find((x) => String(x.id) === e.target.value);
-                                if (st)
-                                    setBulkMove({
-                                        orderIds: selection.selectedIds,
-                                        status: st,
-                                        label: `${selection.count} commande(s) → « ${st.name} ». Mêmes règles qu’un changement manuel (transitions, champs obligatoires).`,
-                                    });
-                            }}
-                            aria-label="Changer le statut"
-                            className="h-8 max-w-44 text-xs"
-                        >
-                            <option value="">Changer le statut…</option>
-                            {meta.statuses.map((st) => (
-                                <option key={st.id} value={st.id}>
-                                    {st.name}
-                                </option>
-                            ))}
-                        </Select>
-                        <CarrierBulkActions
-                            ids={selection.selectedIds}
-                            onDone={() => {
-                                load();
-                                setReloadKey((k) => k + 1);
-                            }}
-                        />
-                        <Button size="sm" variant="ghost" onClick={selection.clear}>
-                            Désélectionner
-                        </Button>
-                    </div>
-                </div>
+                <BulkActionBar
+                    count={selection.count}
+                    ids={selection.selectedIds}
+                    onClear={selection.clear}
+                    onKeepFailed={(failed) => selection.replace(failed)}
+                    onChanged={refreshAll}
+                />
             ) : null}
 
             <Alert>{error}</Alert>
@@ -504,18 +459,6 @@ export default function Orders() {
                 </>
             )}
 
-            <StatusMoveDialog
-                move={bulkMove}
-                onClose={() => setBulkMove(null)}
-                onDone={() => {
-                    setBulkMove(null);
-                    selection.clear();
-                    load();
-                    setReloadKey((k) => k + 1);
-                }}
-            />
-            <AgentAssignDrawer open={assigningAgent} onClose={() => setAssigningAgent(false)} orderIds={selection.selectedIds} onDone={refreshAll} />
-            <LocalAssignDrawer open={assigning} onClose={() => setAssigning(false)} orderIds={selection.selectedIds} onDone={refreshAll} />
 
             <OrderForm
                 open={creating}

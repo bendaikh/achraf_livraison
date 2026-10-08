@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, ExternalLink, Loader2, RefreshCw, Send, Truck, X, XCircle } from 'lucide-react';
 import api, { errorMessage } from '../../lib/api';
 import { formatDH } from '../../lib/format';
+import { chunkIds } from '../../lib/delivery';
+import { shipCarrier } from '../delivery/ship';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button, Input, Spinner } from '../ui';
 import OzonCityPicker from './OzonCityPicker';
@@ -30,15 +32,29 @@ export default function CarrierSendDialog({ carrier, orderIds = [], savId = null
     const [result, setResult] = useState(null);
     const canMap = can('settings.manage');
 
+    async function loadPreview(opts) {
+        const chunks = chunkIds(orderIds);
+        const rows = [];
+        let unavailable = null;
+        let bulkBlocked = null;
+        for (const ids of chunks.length ? chunks : [[]]) {
+            const { data } = await api.post(`/carriers/${carrier.key}/preview`, { order_ids: ids, options: opts || {} });
+            rows.push(...(data.rows || []));
+            unavailable = unavailable || data.unavailable;
+            bulkBlocked = bulkBlocked || data.bulk_blocked;
+        }
+        return { rows, unavailable, bulkBlocked };
+    }
+
     const load = useCallback(
         async (opts) => {
             setError(null);
             try {
                 const { data } = savId
                     ? await api.get(`/sav/${savId}/ozon`, { params: { price: Number(price || 0), ...(opts ? { open: opts.open ? 1 : 0, fragile: opts.fragile ? 1 : 0 } : {}) } })
-                    : await api.post(`/carriers/${carrier.key}/preview`, { order_ids: orderIds, options: opts || {} });
+                    : await loadPreview(opts);
                 setRows(data.rows);
-                setMeta({ unavailable: data.unavailable, bulkBlocked: data.bulk_blocked });
+                setMeta({ unavailable: data.unavailable, bulkBlocked: data.bulkBlocked ?? data.bulk_blocked });
                 if (!opts && data.rows[0]) setOptions(data.rows[0].fragile === undefined ? { open: data.rows[0].open } : { open: data.rows[0].open, fragile: data.rows[0].fragile });
             } catch (e) {
                 setError(errorMessage(e));
@@ -97,11 +113,17 @@ export default function CarrierSendDialog({ carrier, orderIds = [], savId = null
         setError(null);
         const ids = rows.filter((r) => r.can_send).map((r) => r.order_id);
         try {
-            const { data } = savId
-                ? await api.post(`/sav/${savId}/ozon`, { price: Number(price || 0), ...options })
-                : await api.post(`/carriers/${carrier.key}/ship`, { order_ids: ids, options });
-            setResult({ ok: true, message: data.message, results: data.results });
-            onDone?.(data);
+            if (savId) {
+                const { data } = await api.post(`/sav/${savId}/ozon`, { price: Number(price || 0), ...options });
+                setResult({ ok: true, message: data.message, results: data.results });
+                onDone?.(data);
+            } else {
+                const results = await shipCarrier(carrier.key, ids, { options });
+                const ok = results.filter((r) => r.success).length;
+                const data = { message: `${ok} envoyée(s) · ${results.length - ok} échec(s)`, results, sent: ok, failed: results.length - ok };
+                setResult({ ok: ok > 0, message: data.message, results });
+                onDone?.(data);
+            }
         } catch (e) {
             const d = e?.response?.data;
             setResult({ ok: false, message: d?.results?.length === 1 ? d.results[0].message : errorMessage(e), results: d?.results });
@@ -126,7 +148,9 @@ export default function CarrierSendDialog({ carrier, orderIds = [], savId = null
                         </span>
                         <div>
                             <div className="text-sm font-bold text-slate-900">{savId ? `Envoyer l’échange à ${carrier.label}` : `Envoyer à ${carrier.label}`}</div>
-                            <div className="text-[11px] text-slate-500">Vérifiez les informations avant de confirmer l’envoi.</div>
+                            <div className="text-[11px] text-slate-500">
+                                {rows && !savId ? `${rows.length} sélectionnées · ${sendable.length} prêtes · ${rows.length - sendable.length} avec problème` : 'Vérifiez les informations avant de confirmer l’envoi.'}
+                            </div>
                         </div>
                     </div>
                     <button type="button" onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Fermer">
@@ -285,7 +309,7 @@ export default function CarrierSendDialog({ carrier, orderIds = [], savId = null
                         </Button>
                         {!result?.ok ? (
                             <Button onClick={confirm} disabled={!!busy || !sendable.length || !!blocked} style={{ backgroundColor: carrier.color }}>
-                                {busy === 'send' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Confirmer l’envoi
+                                {busy === 'send' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} {savId ? 'Confirmer l’envoi' : `Envoyer les ${sendable.length} commandes prêtes`}
                             </Button>
                         ) : null}
                     </div>

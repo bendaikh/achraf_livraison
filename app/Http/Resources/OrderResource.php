@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use App\Models\ClientBlock;
 use App\Models\ConfirmationStatus;
 use App\Services\Carriers\CarrierRegistry;
+use App\Services\Delivery\DeliveryModeRegistry;
 use App\Services\Catalog\CatalogLookup;
 use App\Services\Catalog\OrderLines;
 use App\Services\OrderWorkflow;
@@ -76,7 +77,8 @@ class OrderResource extends JsonResource
             // Includes inactive statuses so existing orders always display correctly.
             'delivery_status' => $status ? new DeliveryStatusResource($status) : null,
             'driver_id' => $this->driver_id,
-            'driver' => $this->whenLoaded('driver', fn () => $this->driver ? ['id' => $this->driver->id, 'name' => $this->driver->name] : null),
+            'driver' => $this->whenLoaded('driver', fn () => $this->driver ? ['id' => $this->driver->id, 'name' => $this->driver->name, 'phone' => $this->driver->phone] : null),
+            'delivery_mode' => app(DeliveryModeRegistry::class)->forOrder($this->resource),
             'assigned_by_name' => $this->whenLoaded('assignedByUser', fn () => $this->assignedByUser?->name),
             'carrier' => $this->carrier,
             'assigned_user_id' => $this->assigned_user_id,

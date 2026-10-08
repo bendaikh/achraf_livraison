@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\CentreController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\ClosingController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\DeliveryModeController;
 use App\Http\Controllers\Api\DeliveryStatusController;
 use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\LocalAssignmentController;
@@ -156,6 +157,8 @@ Route::middleware(['web', 'auth', 'admin.access'])->group(function () {
     Route::post('integrations/speedaf/test', [SpeedafIntegrationController::class, 'test'])->middleware('can:settings.manage');
     Route::post('integrations/speedaf/webhook/subscribe', [SpeedafIntegrationController::class, 'subscribeWebhook'])->middleware('can:settings.manage');
     Route::post('integrations/speedaf/sync', [SpeedafIntegrationController::class, 'sync'])->middleware('can:settings.manage');
+    Route::get('delivery-modes', [DeliveryModeController::class, 'index']);
+    Route::post('delivery-modes/{mode}/check', [DeliveryModeController::class, 'check'])->middleware('can:orders.ship')->where('mode', '[a-z0-9_-]+');
     Route::get('carriers', [CarrierController::class, 'index']);
     Route::post('carriers/labels', [CarrierController::class, 'labels']);
     Route::post('carriers/{carrier}/ship', [CarrierController::class, 'ship'])->middleware('can:orders.ship')->where('carrier', '[a-z0-9_-]+');

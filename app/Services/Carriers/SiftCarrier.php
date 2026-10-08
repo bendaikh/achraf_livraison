@@ -12,7 +12,7 @@ use App\Services\Sift\SiftStatusMap;
 use Illuminate\Database\Eloquent\Builder;
 
 /** Sift.ma adapter of the generic carrier contract (wraps SiftShipmentService). */
-class SiftCarrier implements AdvancedCarrier, CarrierInterface
+class SiftCarrier implements AdvancedCarrier, CarrierInterface, CarrierPresentation
 {
     public function key(): string
     {
@@ -126,5 +126,51 @@ class SiftCarrier implements AdvancedCarrier, CarrierInterface
     public function scopeShipped(Builder $query): Builder
     {
         return $query->whereHas('siftShipments', fn ($w) => $w->where('state', '!=', SiftShipment::STATE_CANCELLED)->whereNull('hidden_at'));
+    }
+
+    public function logoUrl(): ?string
+    {
+        return '/images/carriers/sift.svg';
+    }
+
+    public function actions(): array
+    {
+        return [
+            ['key' => 'refresh', 'label' => 'Actualiser statut', 'method' => 'POST', 'url' => '/api/sift/orders/{id}/refresh'],
+            ['key' => 'label', 'label' => 'Étiquette', 'method' => 'GET', 'url' => '/api/sift/orders/{id}/waybill'],
+            ['key' => 'resync', 'label' => 'Resynchroniser', 'method' => 'POST', 'url' => '/api/sift/orders/{id}/resync'],
+            ['key' => 'update', 'label' => 'Modifier le colis', 'method' => 'PUT', 'url' => '/api/sift/orders/{id}', 'ui' => 'sift-edit'],
+            ['key' => 'cancel', 'label' => 'Annuler le colis', 'method' => 'POST', 'url' => '/api/sift/orders/{id}/cancel', 'prompt' => 'Motif de l’annulation (facultatif) :'],
+            ['key' => 'hide', 'label' => 'Masquer le colis', 'method' => 'POST', 'url' => '/api/sift/orders/{id}/hide', 'confirm' => 'Masquer ce colis ?'],
+        ];
+    }
+
+    public function documents(): array
+    {
+        return [
+            ['key' => 'waybill', 'label' => 'Étiquettes', 'method' => 'POST', 'url' => '/api/sift/labels', 'formats' => SiftSetting::WAYBILL_FORMATS],
+        ];
+    }
+
+    public function history(Order $order): array
+    {
+        $rows = $order->relationLoaded('siftShipments')
+            ? $order->siftShipments
+            : SiftShipment::query()->where('order_id', $order->id)->get();
+
+        return $rows->filter(fn (SiftShipment $s) => $s->state === SiftShipment::STATE_CANCELLED || $s->hidden_at)
+            ->sortByDesc('id')->values()->map(fn (SiftShipment $s) => [
+                'carrier' => $this->key(),
+                'carrier_label' => $this->label(),
+                'tracking' => $s->tracking_number ?: $s->parcel_id,
+                'status_label' => $s->hidden_at ? 'Masqué' : 'Annulé',
+                'state' => $s->state,
+                'shipped_at' => $s->created_at?->toIso8601String(),
+            ])->all();
+    }
+
+    public function recentCount(int $companyId, \DateTimeInterface $since): int
+    {
+        return SiftShipment::query()->where('company_id', $companyId)->where('created_at', '>=', $since)->count();
     }
 }

@@ -40,10 +40,15 @@ class CarrierRegistry
 
             $caps = $c instanceof AdvancedCarrier ? $c->capabilities($companyId) : [];
 
-            return ['key' => $c->key(), 'label' => $c->label(), 'color' => $c->color(), 'available' => $reason === null, 'reason' => $reason,
+            return [
+                'key' => $c->key(), 'label' => $c->label(), 'color' => $c->color(), 'available' => $reason === null, 'reason' => $reason,
                 'preview' => (bool) ($caps['preview'] ?? false), 'delivery_notes' => (bool) ($caps['delivery_notes'] ?? false),
                 'bulk_enabled' => (bool) ($caps['bulk_enabled'] ?? true), 'bulk_reason' => $caps['bulk_reason'] ?? null,
-                'waybill_formats' => $caps['waybill_formats'] ?? null, 'default_waybill_format' => $caps['default_waybill_format'] ?? null];
+                'waybill_formats' => $caps['waybill_formats'] ?? null, 'default_waybill_format' => $caps['default_waybill_format'] ?? null,
+                'logo' => $c instanceof CarrierPresentation ? $c->logoUrl() : null,
+                'actions' => $c instanceof CarrierPresentation ? $c->actions() : [],
+                'documents' => $c instanceof CarrierPresentation ? $c->documents() : [],
+            ];
         }, $this->all()));
     }
 

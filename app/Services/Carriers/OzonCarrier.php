@@ -10,7 +10,7 @@ use App\Services\Ozon\OzonShipmentService;
 use Illuminate\Database\Eloquent\Builder;
 
 /** Ozon Express adapter of the generic carrier contract (wraps OzonShipmentService). */
-class OzonCarrier implements AdvancedCarrier, CarrierInterface
+class OzonCarrier implements AdvancedCarrier, CarrierInterface, CarrierPresentation
 {
     public function key(): string
     {
@@ -128,5 +128,50 @@ class OzonCarrier implements AdvancedCarrier, CarrierInterface
     public function scopeShipped(Builder $query): Builder
     {
         return $query->whereHas('ozonShipments', fn ($w) => $w->where('state', '!=', OzonShipment::STATE_CANCELLED)->whereNull('sav_request_id'));
+    }
+
+    public function logoUrl(): ?string
+    {
+        return '/images/carriers/ozon.svg';
+    }
+
+    public function actions(): array
+    {
+        return [
+            ['key' => 'track', 'label' => 'Suivre', 'method' => 'POST', 'url' => '/api/ozon/orders/{id}/track'],
+            ['key' => 'label', 'label' => 'Étiquette', 'method' => 'POST', 'url' => '/api/ozon/labels', 'body' => 'order_ids'],
+            ['key' => 'delivery_note', 'label' => 'BL', 'method' => 'POST', 'url' => '/api/ozon/delivery-notes', 'body' => 'order_ids', 'confirm' => 'Créer un BL pour cette commande ?'],
+            ['key' => 'refresh', 'label' => 'Actualiser statut', 'method' => 'POST', 'url' => '/api/ozon/orders/{id}/refresh'],
+        ];
+    }
+
+    public function documents(): array
+    {
+        return [
+            ['key' => 'delivery_note', 'label' => 'Créer BL', 'method' => 'POST', 'url' => '/api/ozon/delivery-notes'],
+            ['key' => 'labels', 'label' => 'Étiquettes', 'method' => 'POST', 'url' => '/api/ozon/labels'],
+        ];
+    }
+
+    public function history(Order $order): array
+    {
+        $rows = $order->relationLoaded('ozonShipments')
+            ? $order->ozonShipments
+            : OzonShipment::query()->where('order_id', $order->id)->get();
+
+        return $rows->filter(fn (OzonShipment $s) => $s->state === OzonShipment::STATE_CANCELLED && ! $s->sav_request_id)
+            ->sortByDesc('id')->values()->map(fn (OzonShipment $s) => [
+                'carrier' => $this->key(),
+                'carrier_label' => $this->label(),
+                'tracking' => $s->tracking_number,
+                'status_label' => 'Annulé',
+                'state' => $s->state,
+                'shipped_at' => $s->created_at?->toIso8601String(),
+            ])->all();
+    }
+
+    public function recentCount(int $companyId, \DateTimeInterface $since): int
+    {
+        return OzonShipment::query()->where('company_id', $companyId)->where('created_at', '>=', $since)->count();
     }
 }

@@ -555,6 +555,19 @@ class Order extends Model
         return 'Statut « '.($status?->name ?? $this->delivery_status).' » : affectation impossible.';
     }
 
+    /**
+     * Why this order cannot be sent to a carrier, or null when it can.
+     * An active local driver already collects the COD — the parcel must not go out a second time.
+     */
+    public function carrierShipBlocker(): ?string
+    {
+        if ($this->isActiveWithDriver()) {
+            return 'Commande affectée à la livraison locale ('.$this->driver?->name.') : retirez d’abord le livreur.';
+        }
+
+        return null;
+    }
+
     public function isActiveWithDriver(): bool
     {
         return $this->driver_id

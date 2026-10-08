@@ -1,12 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Bike, CheckCircle2, ChevronRight, Copy, ExternalLink, PackagePlus, Printer, RefreshCw, Truck, X, XCircle } from 'lucide-react';
+import { ArrowLeft, Bike, CheckCircle2, Copy, ExternalLink, PackagePlus, Printer, RefreshCw, Truck, X, XCircle } from 'lucide-react';
 import api, { errorMessage } from '../../lib/api';
 import { formatDateTime, formatDH } from '../../lib/format';
-import useCarriers from '../../hooks/useCarriers';
+import useDeliveryModes from '../../hooks/useDeliveryModes';
 import { Button, Spinner } from '../ui';
 import CarrierSendDialog from '../ozon/CarrierSendDialog';
+import DeliveryModeMenu from '../delivery/DeliveryModeMenu';
+import SendConfirmDialog from '../delivery/SendConfirmDialog';
+import CarrierLogo from '../delivery/CarrierLogo';
 
 /** Delivery categories where the order is finished (no re-assignment from the popup). */
 const FINAL_CATEGORIES = ['succes', 'retour', 'annulation'];
@@ -72,16 +75,14 @@ function QuickShipPopup({ anchor, order, onClose, onChanged }) {
     const panel = useRef(null);
     const [pos, setPos] = useState(null);
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
-    const { carriers, can_ship: canShip, can_assign_driver: canAssign, loading } = useCarriers();
+    const { can_assign_driver: canAssign } = useDeliveryModes();
     const shipped = order.shipment;
-    const [step, setStep] = useState(shipped || order.driver ? 'info' : 'choose'); // info | choose | carrier | local | done
-    const [carrier, setCarrier] = useState(null);
-    const [drivers, setDrivers] = useState(null);
-    const [driverId, setDriverId] = useState(null);
+    const [step, setStep] = useState(shipped || order.driver ? 'info' : 'choose');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState(null);
     const [done, setDone] = useState(null);
-    const [dialog, setDialog] = useState(null); // carrier with a validation preview (Ozon)
+    const [dialog, setDialog] = useState(null);
+    const [confirmCarrier, setConfirmCarrier] = useState(null);
 
     useLayoutEffect(() => {
         if (isMobile) return undefined;
@@ -108,25 +109,14 @@ function QuickShipPopup({ anchor, order, onClose, onChanged }) {
         return () => document.removeEventListener('keydown', onKey);
     }, [onClose]);
 
-    useEffect(() => {
-        if (step !== 'local' || drivers) return;
-        api.get('/local-delivery/drivers')
-            .then(({ data }) => setDrivers(data.drivers))
-            .catch((e) => setError(errorMessage(e)));
-    }, [step, drivers]);
-
-    async function confirm() {
+    async function assignDriver(driver) {
         setBusy(true);
         setError(null);
         try {
-            const { data } =
-                step === 'carrier'
-                    ? await api.post(`/carriers/${carrier.key}/ship`, { order_ids: [order.id] })
-                    : await api.post('/local-delivery/assign', { order_ids: [order.id], driver_id: driverId });
+            const { data } = await api.post('/local-delivery/assign', { order_ids: [order.id], driver_id: driver.id });
             const r = data.results?.[0];
-            if (r && !r.success) {
-                setError(r.message);
-            } else {
+            if (r && !r.success) setError(r.message);
+            else {
                 setDone(data.message || 'Terminé.');
                 setStep('done');
                 onChanged?.();
@@ -136,6 +126,16 @@ function QuickShipPopup({ anchor, order, onClose, onChanged }) {
         } finally {
             setBusy(false);
         }
+    }
+
+    function pickMode(mode) {
+        setError(null);
+        if (mode.driver) {
+            assignDriver(mode.driver);
+            return;
+        }
+        if (mode.preview) setDialog(mode);
+        else if (mode.type === 'carrier') setConfirmCarrier(mode);
     }
 
     const notConfirmed = order.is_confirmed === false;
@@ -153,8 +153,8 @@ function QuickShipPopup({ anchor, order, onClose, onChanged }) {
             >
                 <div className="mb-2 flex items-center justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-1.5">
-                        {['carrier', 'local'].includes(step) ? (
-                            <button type="button" onClick={() => { setStep('choose'); setError(null); }} className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Retour">
+                        {step === 'choose' && (shipped || order.driver) ? (
+                            <button type="button" onClick={() => { setStep('info'); setError(null); }} className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Retour">
                                 <ArrowLeft className="h-4 w-4" />
                             </button>
                         ) : null}
@@ -179,109 +179,13 @@ function QuickShipPopup({ anchor, order, onClose, onChanged }) {
                 ) : null}
 
                 {step === 'info' ? (
-                    <ShipmentInfo order={order} onChanged={onChanged} canReassign={canAssign && !shipped && !FINAL_CATEGORIES.includes(order.delivery_status?.category)} onReassign={() => setStep('local')} />
+                    <ShipmentInfo order={order} onChanged={onChanged} canReassign={canAssign && !shipped && !FINAL_CATEGORIES.includes(order.delivery_status?.category)} onReassign={() => setStep('choose')} />
                 ) : null}
 
                 {step === 'choose' ? (
-                    loading ? (
-                        <Spinner />
-                    ) : (
-                        <div className="space-y-3">
-                            {notConfirmed ? <p className="rounded-lg bg-amber-50 px-2.5 py-2 text-xs font-medium text-amber-700">Commande non confirmée : l’envoi sera refusé tant qu’elle n’est pas confirmée.</p> : null}
-                            <div>
-                                <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Envoyer à une société de livraison</div>
-                                <div className="space-y-1">
-                                    {carriers.length === 0 ? <p className="text-xs text-slate-400">Aucune société de livraison configurée.</p> : null}
-                                    {carriers.map((c) => {
-                                        const disabled = !c.available || !canShip;
-                                        return (
-                                            <button
-                                                key={c.key}
-                                                type="button"
-                                                disabled={disabled}
-                                                onClick={() => { setError(null); if (c.preview) { setDialog(c); } else { setCarrier(c); setStep('carrier'); } }}
-                                                title={!canShip ? 'Vous n’avez pas la permission d’expédier.' : c.reason || ''}
-                                                className="flex w-full items-center gap-2 rounded-xl border border-slate-200 px-2.5 py-2 text-left text-sm hover:border-blue-200 hover:bg-blue-50/50 disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:bg-white"
-                                            >
-                                                <span className="flex h-7 w-7 items-center justify-center rounded-lg text-[11px] font-extrabold text-white" style={{ backgroundColor: c.color }}>
-                                                    {c.label.slice(0, 2).toUpperCase()}
-                                                </span>
-                                                <span className="min-w-0 flex-1">
-                                                    <span className="block font-semibold text-slate-800">{c.label}</span>
-                                                    {!c.available ? <span className="block truncate text-[11px] text-slate-400">{c.reason}</span> : null}
-                                                </span>
-                                                <ChevronRight className="h-4 w-4 text-slate-300" />
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                            <div>
-                                <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Livraison locale</div>
-                                <button
-                                    type="button"
-                                    disabled={!canAssign}
-                                    onClick={() => { setStep('local'); setError(null); }}
-                                    title={canAssign ? '' : 'Vous n’avez pas la permission d’affecter un livreur.'}
-                                    className="flex w-full items-center gap-2 rounded-xl border border-slate-200 px-2.5 py-2 text-left text-sm hover:border-emerald-200 hover:bg-emerald-50/50 disabled:cursor-not-allowed disabled:opacity-55"
-                                >
-                                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-white">
-                                        <Bike className="h-4 w-4" />
-                                    </span>
-                                    <span className="flex-1 font-semibold text-slate-800">Affecter à livraison locale</span>
-                                    <ChevronRight className="h-4 w-4 text-slate-300" />
-                                </button>
-                            </div>
-                        </div>
-                    )
-                ) : null}
-
-                {step === 'carrier' && carrier ? (
-                    <div className="space-y-3">
-                        <p className="text-sm text-slate-600">
-                            Créer le colis chez <strong>{carrier.label}</strong> ? Le numéro de suivi et le statut seront ajoutés à la commande et à son historique.
-                        </p>
-                        <Button className="w-full" onClick={confirm} disabled={busy}>
-                            <Truck className="h-4 w-4" /> {busy ? 'Envoi…' : `Confirmer l’envoi à ${carrier.label}`}
-                        </Button>
-                    </div>
-                ) : null}
-
-                {step === 'local' ? (
                     <div className="space-y-2">
-                        {!drivers ? (
-                            <Spinner />
-                        ) : drivers.length === 0 ? (
-                            <p className="text-xs text-slate-500">Aucun livreur actif. Ajoutez-en dans Livreurs.</p>
-                        ) : (
-                            <div className="max-h-60 space-y-1 overflow-y-auto" role="radiogroup" aria-label="Livreurs">
-                                {drivers.map((d) => (
-                                    <button
-                                        key={d.id}
-                                        type="button"
-                                        role="radio"
-                                        aria-checked={driverId === d.id}
-                                        disabled={order.driver?.id === d.id}
-                                        onClick={() => setDriverId(d.id)}
-                                        className={`flex w-full items-center gap-2 rounded-xl border px-2.5 py-1.5 text-left text-sm disabled:opacity-50 ${driverId === d.id ? 'border-emerald-300 bg-emerald-50 ring-2 ring-emerald-100' : 'border-slate-200 hover:bg-slate-50'}`}
-                                    >
-                                        <Bike className="h-4 w-4 shrink-0 text-emerald-600" />
-                                        <span className="min-w-0 flex-1">
-                                            <span className="block truncate font-semibold text-slate-800">
-                                                {d.name}
-                                                {order.driver?.id === d.id ? ' (actuel)' : ''}
-                                            </span>
-                                            <span className="block truncate text-[11px] text-slate-500">
-                                                {d.missions_in_progress} en cours{d.city ? ` · ${d.city}` : ''}
-                                            </span>
-                                        </span>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                        <Button className="w-full" onClick={confirm} disabled={busy || !driverId}>
-                            <Bike className="h-4 w-4" /> {busy ? 'Affectation…' : order.driver ? 'Réaffecter' : 'Affecter'}
-                        </Button>
+                        {notConfirmed ? <p className="rounded-lg bg-amber-50 px-2.5 py-2 text-xs font-medium text-amber-700">Commande non confirmée : l’envoi sera refusé tant qu’elle n’est pas confirmée.</p> : null}
+                        {busy ? <Spinner label="Affectation…" /> : <DeliveryModeMenu includeLocal orderCount={1} onSelect={pickMode} onClose={onClose} className="w-full shadow-none" />}
                     </div>
                 ) : null}
 
@@ -311,6 +215,22 @@ function QuickShipPopup({ anchor, order, onClose, onChanged }) {
         );
     }
 
+    if (confirmCarrier) {
+        return (
+            <SendConfirmDialog
+                carrier={confirmCarrier}
+                orderIds={[order.id]}
+                onClose={() => setConfirmCarrier(null)}
+                onDone={() => {
+                    setConfirmCarrier(null);
+                    setStep('done');
+                    setDone('Envoi terminé.');
+                    onChanged?.();
+                }}
+            />
+        );
+    }
+
     return createPortal(body, document.body);
 }
 
@@ -322,7 +242,9 @@ function ShipmentInfo({ order, canReassign, onReassign, onChanged }) {
         setRefreshing(true);
         setNote(null);
         try {
-            const { data } = await api.post(`/${s.carrier}/orders/${order.id}/refresh`);
+            const action = (order.delivery_mode?.actions || []).find((a) => a.key === 'refresh');
+            const url = action?.url ? action.url.replace(/^\/api/, '') : `/${s.carrier}/orders/${order.id}/refresh`;
+            const { data } = await api.request({ method: action?.method || 'POST', url });
             setNote({ ok: true, text: data.message });
             onChanged?.();
         } catch (e) {
@@ -335,9 +257,7 @@ function ShipmentInfo({ order, canReassign, onReassign, onChanged }) {
         return (
             <div className="space-y-2 text-sm">
                 <div className="flex items-center gap-2">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-lg text-[11px] font-extrabold text-white" style={{ backgroundColor: s.color }}>
-                        {s.carrier_label.slice(0, 2).toUpperCase()}
-                    </span>
+                    <CarrierLogo mode={{ label: s.carrier_label, color: s.color, logo: order.delivery_mode?.logo }} />
                     <div>
                         <div className="font-semibold text-slate-800">{s.carrier_label}</div>
                         <div className="text-[11px] text-slate-500">Envoyée le {formatDateTime(s.shipped_at)}</div>
@@ -358,11 +278,11 @@ function ShipmentInfo({ order, canReassign, onReassign, onChanged }) {
                     {s.status_at ? <div className="text-[11px] text-slate-400">{formatDateTime(s.status_at)}</div> : null}
                     {s.last_error ? <div className="mt-1 text-xs text-rose-600">{s.last_error}</div> : null}
                 </div>
-                {s.delivery_note_ref ? <div className="text-xs text-slate-500">BL Ozon : <span className="font-mono font-semibold">{s.delivery_note_ref}</span></div> : null}
-                {s.carrier === 'ozon' || s.can_refresh ? (
+                {s.delivery_note_ref ? <div className="text-xs text-slate-500">BL : <span className="font-mono font-semibold">{s.delivery_note_ref}</span></div> : null}
+                {(order.delivery_mode?.actions || []).some((a) => a.key === 'refresh') || s.can_refresh ? (
                     <div>
                         <button type="button" onClick={refreshOzon} disabled={refreshing} className="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 hover:text-teal-800 disabled:opacity-60">
-                            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} /> Actualiser depuis {s.carrier_label}
+                            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} /> Actualiser statut
                         </button>
                         {note ? <div className={`mt-1 text-xs ${note.ok ? 'text-emerald-700' : 'text-rose-600'}`}>{note.text}</div> : null}
                     </div>

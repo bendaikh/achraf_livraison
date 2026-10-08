@@ -11,7 +11,7 @@ use App\Services\Speedaf\SpeedafShipmentService;
 use Illuminate\Database\Eloquent\Builder;
 
 /** Speedaf adapter of the generic carrier contract (wraps SpeedafShipmentService). */
-class SpeedafCarrier implements CarrierInterface
+class SpeedafCarrier implements CarrierInterface, CarrierPresentation
 {
     public function key(): string
     {
@@ -106,5 +106,48 @@ class SpeedafCarrier implements CarrierInterface
     public function scopeShipped(Builder $query): Builder
     {
         return $query->whereHas('speedafShipments', fn ($w) => $w->where('state', '!=', SpeedafShipment::STATE_CANCELLED));
+    }
+
+    public function logoUrl(): ?string
+    {
+        return '/images/carriers/speedaf.svg';
+    }
+
+    public function actions(): array
+    {
+        return [
+            ['key' => 'refresh', 'label' => 'Actualiser statut', 'method' => 'POST', 'url' => '/api/speedaf/orders/{id}/sync'],
+            ['key' => 'label', 'label' => 'Étiquette', 'method' => 'GET', 'url' => '/api/speedaf/orders/{id}/label'],
+            ['key' => 'cancel', 'label' => 'Annuler le colis', 'method' => 'POST', 'url' => '/api/speedaf/orders/{id}/cancel', 'prompt' => 'Motif de l’annulation :', 'prompt_default' => 'Annulation expéditeur'],
+        ];
+    }
+
+    public function documents(): array
+    {
+        return [
+            ['key' => 'labels', 'label' => 'Étiquettes', 'method' => 'POST', 'url' => '/api/speedaf/labels'],
+        ];
+    }
+
+    public function history(Order $order): array
+    {
+        $rows = $order->relationLoaded('speedafShipments')
+            ? $order->speedafShipments
+            : SpeedafShipment::query()->where('order_id', $order->id)->get();
+
+        return $rows->filter(fn (SpeedafShipment $s) => $s->state === SpeedafShipment::STATE_CANCELLED)
+            ->sortByDesc('id')->values()->map(fn (SpeedafShipment $s) => [
+                'carrier' => $this->key(),
+                'carrier_label' => $this->label(),
+                'tracking' => $s->bill_code,
+                'status_label' => 'Annulée',
+                'state' => $s->state,
+                'shipped_at' => $s->created_at?->toIso8601String(),
+            ])->all();
+    }
+
+    public function recentCount(int $companyId, \DateTimeInterface $since): int
+    {
+        return SpeedafShipment::query()->where('company_id', $companyId)->where('created_at', '>=', $since)->count();
     }
 }

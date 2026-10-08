@@ -26,6 +26,8 @@ export default function useSelection() {
 
     const clear = useCallback(() => setSelected(new Set()), []);
 
+    const replace = useCallback((ids) => setSelected(new Set(ids || [])), []);
+
     const pageState = useCallback(
         (ids) => {
             const count = ids.filter((id) => selected.has(id)).length;
@@ -35,7 +37,7 @@ export default function useSelection() {
     );
 
     return useMemo(
-        () => ({ selected, selectedIds: [...selected], count: selected.size, isSelected: (id) => selected.has(id), toggle, setMany, clear, pageState }),
-        [selected, toggle, setMany, clear, pageState],
+        () => ({ selected, selectedIds: [...selected], count: selected.size, isSelected: (id) => selected.has(id), toggle, setMany, clear, replace, pageState }),
+        [selected, toggle, setMany, clear, replace, pageState],
     );
 }

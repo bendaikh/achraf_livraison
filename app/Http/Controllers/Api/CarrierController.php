@@ -56,12 +56,13 @@ class CarrierController extends Controller
         if ($blocked = $this->bulkBlocked($impl, $companyId, $data['order_ids'])) {
             return response()->json(['message' => $blocked], 422);
         }
-        $orders = Order::query()->whereIn('id', $data['order_ids'])->with('deliveryStatus')->get();
+        $orders = Order::query()->where('company_id', $companyId)->whereIn('id', $data['order_ids'])->with(['deliveryStatus', 'driver'])->get();
         if ($orders->isEmpty()) {
             return response()->json(['message' => 'Aucune commande trouvée.'], 404);
         }
 
-        // One external parcel at a time: refuse orders already shipped with another carrier.
+        // One external parcel at a time: refuse orders already shipped with another carrier,
+        // and orders still active with a local driver (they would collect the same COD).
         $results = [];
         $toShip = [];
         foreach ($orders as $order) {
@@ -69,6 +70,9 @@ class CarrierController extends Controller
             if ($existing && $existing['carrier'] !== $impl->key()) {
                 $results[] = ['order_id' => $order->id, 'reference' => $order->reference(), 'success' => false, 'tracking' => null,
                     'message' => "Déjà envoyée à {$existing['carrier_label']} (n° {$existing['tracking']})."];
+            } elseif ($blocker = $order->carrierShipBlocker()) {
+                $results[] = ['order_id' => $order->id, 'reference' => $order->reference(), 'success' => false, 'tracking' => null,
+                    'message' => $blocker];
             } else {
                 $toShip[] = $order;
             }
@@ -111,12 +115,17 @@ class CarrierController extends Controller
             return response()->json(['message' => 'Pas d’aperçu pour cette société de livraison.'], 404);
         }
         $companyId = $request->user()->resolveCompanyId();
-        $orders = Order::query()->whereIn('id', $data['order_ids'])->with('deliveryStatus')->get();
+        $orders = Order::query()->where('company_id', $companyId)->whereIn('id', $data['order_ids'])->with(['deliveryStatus', 'driver'])->get();
         $rows = [];
         foreach ($impl->preview($companyId, $orders, (array) ($data['options'] ?? [])) as $row) {
-            $other = $this->carriers->shipmentFor($orders->firstWhere('id', $row['order_id']));
+            $order = $orders->firstWhere('id', $row['order_id']);
+            $other = $this->carriers->shipmentFor($order);
             if ($other && $other['carrier'] !== $impl->key()) {
                 $row['errors'][] = "Déjà envoyée à {$other['carrier_label']} (n° {$other['tracking']}).";
+                $row['can_send'] = false;
+            }
+            if ($order && ($blocker = $order->carrierShipBlocker())) {
+                $row['errors'][] = $blocker;
                 $row['can_send'] = false;
             }
             $rows[] = $row;
