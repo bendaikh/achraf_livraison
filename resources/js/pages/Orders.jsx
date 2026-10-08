@@ -7,7 +7,7 @@ import useUserPreference from '../hooks/useUserPreference';
 import useSelection from '../hooks/useSelection';
 import { Alert, Button, Card, Checkbox, EmptyState, Input, PageHeader, Select, Spinner } from '../components/ui';
 import ColumnSelector from '../components/orders/ColumnSelector';
-import OrderForm from '../components/orders/OrderForm';
+import OrderCreate from '../components/orders/OrderCreate';
 import QuickShip from '../components/orders/QuickShip';
 import useCarriers from '../hooks/useCarriers';
 import KanbanBoard from '../components/orders/KanbanBoard';
@@ -32,6 +32,7 @@ const FILTER_KEYS = [
     'date_to',
     'out_of_stock',
     'late',
+    'flow_state',
 ];
 const ADVANCED_KEYS = ['city', 'assigned_user_id', 'source', 'date_from', 'date_to'];
 const PERIODS = [
@@ -97,14 +98,14 @@ export default function Orders() {
     async function retryShopify(order) {
         setError(null);
         try {
-            await api.post(`/orders/${order.id}/shopify-retry`);
+            await api.post(order.creation_key ? `/orders/${order.id}/flow-retry` : `/orders/${order.id}/shopify-retry`);
             await load();
         } catch (e) {
             setError(errorMessage(e));
         }
     }
 
-    const cellMeta = { ...meta, retryShopify: can('orders.edit_items') ? retryShopify : undefined };
+    const cellMeta = { ...meta, retryShopify: can('orders.edit_items') || can('orders.create') ? retryShopify : undefined };
 
     useEffect(() => {
         load();
@@ -170,9 +171,11 @@ export default function Orders() {
                                 </button>
                             ))}
                         </div>
-                        <Button onClick={() => setCreating(true)}>
-                            <Plus className="h-4 w-4" /> Nouvelle commande
-                        </Button>
+                        {can('orders.create') ? (
+                            <Button onClick={() => setCreating(true)}>
+                                <Plus className="h-4 w-4" /> Nouvelle commande
+                            </Button>
+                        ) : null}
                     </div>
                 }
             />
@@ -201,6 +204,10 @@ export default function Orders() {
                                 {c.label}
                             </option>
                         ))}
+                    </Select>
+                    <Select value={filters.flow_state} onChange={(e) => setFilter('flow_state', e.target.value)} aria-label="Brouillons">
+                        <option value="">Toutes</option>
+                        <option value="draft">Brouillons</option>
                     </Select>
                     <Select value={filters.payment_method} onChange={(e) => setFilter('payment_method', e.target.value)} aria-label="Paiement">
                         <option value="">Paiement</option>
@@ -460,7 +467,7 @@ export default function Orders() {
             )}
 
 
-            <OrderForm
+            <OrderCreate
                 open={creating}
                 onClose={() => setCreating(false)}
                 onSaved={(o) => {

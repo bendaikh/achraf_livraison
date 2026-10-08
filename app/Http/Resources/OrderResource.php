@@ -9,6 +9,8 @@ use App\Services\Delivery\DeliveryModeRegistry;
 use App\Services\Catalog\CatalogLookup;
 use App\Services\Catalog\OrderLines;
 use App\Services\OrderWorkflow;
+use App\Services\Orders\OrderLifecycle;
+use App\Services\Orders\OrderMotifs;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -92,6 +94,26 @@ class OrderResource extends JsonResource
             'speedaf' => $this->when($this->relationLoaded('speedafShipments'), fn () => $this->currentSpeedafShipment()?->toSummary()),
             'speedaf_history' => $this->when($this->relationLoaded('speedafShipments') && $this->relationLoaded('histories'), fn () => $this->speedafShipments->map(fn ($s) => $s->toSummary() + ['tracks' => $s->tracks ?? []])->values()),
             'source' => $this->sourceLabel(),
+            'lifecycle_status' => $this->status,
+            'flow_state' => $this->flow_state,
+            'is_draft' => $this->flow_state === 'draft',
+            'creation_key' => $this->creation_key,
+            'flow_notice' => $this->flow_notice,
+            'created_by' => $this->created_by,
+            'created_by_name' => $this->whenLoaded('createdByUser', fn () => $this->createdByUser?->name),
+            'commercial_user_id' => $this->commercial_user_id,
+            'commercial' => $this->whenLoaded('commercialUser', fn () => $this->commercialUser ? ['id' => $this->commercialUser->id, 'name' => $this->commercialUser->name] : null),
+            'extra_fees' => $this->extra_fees ?? [],
+            'discount_kind' => $this->discount_kind,
+            'discount_value' => $this->discount_value !== null ? (float) $this->discount_value : null,
+            'cancelled_at' => $this->cancelled_at?->toIso8601String(),
+            'cancel_reason' => $this->cancel_reason,
+            'cancel_reason_label' => $this->cancel_reason ? OrderMotifs::label($this->cancel_reason) : null,
+            'cancel_comment' => $this->cancel_comment,
+            'shopify_admin_url' => $this->shopify_order_id && $this->shop?->shop_domain
+                ? 'https://'.$this->shop->shop_domain.'/admin/orders/'.$this->shopify_order_id
+                : null,
+            ...$this->lifecycleFlags($request),
             'note' => $this->note,
             'internal_note' => $this->internal_note,
             'status_reason' => $this->delivery_failure_reason ?? $this->cancellation_reason,
@@ -117,5 +139,11 @@ class OrderResource extends JsonResource
             'timeline' => $this->when($this->relationLoaded('histories'), fn () => $this->confirmation_history ?? []),
             'allowed_status_ids' => $this->when($this->relationLoaded('histories'), fn () => app(OrderWorkflow::class)->allowedStatusIds($this->resource)),
         ];
+    }
+
+    /** @return array{can_delete_draft: bool, can_cancel: bool, cancel_blockers: list<string>, delete_blockers: list<string>} */
+    private function lifecycleFlags(Request $request): array
+    {
+        return app(OrderLifecycle::class)->flags($this->resource, $request->user());
     }
 }

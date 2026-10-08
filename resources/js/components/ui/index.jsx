@@ -93,7 +93,7 @@ export function Alert({ type = 'error', children }) {
 }
 
 /** Right-side drawer on desktop, bottom sheet on mobile. */
-export function Drawer({ open, onClose, title, children, footer, wide = false }) {
+export function Drawer({ open, onClose, title, children, footer, wide = false, full = false }) {
     useEffect(() => {
         if (!open) return undefined;
         const onKey = (e) => e.key === 'Escape' && onClose?.();
@@ -108,7 +108,7 @@ export function Drawer({ open, onClose, title, children, footer, wide = false })
             <div
                 role="dialog"
                 aria-modal="true"
-                className={`absolute inset-x-0 bottom-0 flex max-h-[92vh] flex-col rounded-t-2xl bg-white shadow-2xl sm:inset-y-0 sm:left-auto sm:right-0 sm:max-h-none sm:w-full sm:rounded-none ${wide ? 'sm:max-w-2xl' : 'sm:max-w-lg'}`}
+                className={`absolute inset-x-0 bottom-0 flex max-h-[92vh] flex-col rounded-t-2xl bg-white shadow-2xl sm:inset-y-0 sm:left-auto sm:right-0 sm:max-h-none sm:w-full sm:rounded-none ${full ? 'sm:max-w-5xl' : wide ? 'sm:max-w-2xl' : 'sm:max-w-lg'}`}
             >
                 <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 sm:px-5">
                     <h2 className="text-base font-bold text-slate-900">{title}</h2>

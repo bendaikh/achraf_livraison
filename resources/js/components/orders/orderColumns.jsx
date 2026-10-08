@@ -54,10 +54,16 @@ export function renderCell(key, order, meta) {
             return (
                 <span className="inline-flex items-center gap-1">
                     <span className="font-semibold text-slate-800">{order.reference}</span>
+                    {order.is_draft || order.flow_state === 'draft' ? (
+                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-800">Brouillon</span>
+                    ) : null}
+                    {order.lifecycle_status === 'cancelled' || order.cancel_reason ? (
+                        <span className="rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold uppercase text-rose-700">Annulée</span>
+                    ) : null}
                     <SyncStatusBadge
                         status={order.shopify_sync_status}
                         error={order.shopify_sync_error}
-                        onRetry={order.shopify_sync_status === 'failed' && meta?.retryShopify ? () => meta.retryShopify(order) : undefined}
+                        onRetry={order.shopify_sync_status === 'failed' && meta?.retryShopify && (order.creation_key || meta?.canEditItems) ? () => meta.retryShopify(order) : undefined}
                     />
                 </span>
             );

@@ -28,7 +28,10 @@ class ConfirmationCentreController extends Controller
     /** Same filter + search + order as GET /api/confirmation/orders. */
     public static function queueQuery(ConfirmationStatusService $statuses, string $filter, string $search = '', string $agent = '', ?int $me = null): Builder
     {
-        $q = Order::query();
+        $q = Order::query()->inWorkflowQueues();
+        if ($user = request()->user()) {
+            $q->visibleTo($user);
+        }
         self::applyAgentFilter($q, $agent, $me);
         $statuses->applyFilter($q, $filter !== '' && $filter !== 'all' ? $filter : ConfirmationStatus::defaultCode());
         if ($search !== '') {
@@ -88,7 +91,7 @@ class ConfirmationCentreController extends Controller
             'confirmed' => $metric(fn ($from, $to = null) => $events([Order::CONFIRMATION_CONFIRMED], $from, $to)),
             'failed' => $metric(fn ($from, $to = null) => $events($failedCodes, $from, $to)),
             'to_confirm' => (clone $queue)->count(),
-            'postponed_due' => Order::query()->whereNotNull('postponed_until')->where('postponed_until', '<=', now())
+            'postponed_due' => Order::query()->inWorkflowQueues()->whereNotNull('postponed_until')->where('postponed_until', '<=', now())
                 ->whereIn('confirmation_status', ConfirmationStatus::codesWithBehavior(ConfirmationStatus::BEHAVIOR_FUTURE_ONLY))->count(),
             'mine' => [
                 'calls_today' => $calls($today, null, $user->id),

@@ -94,16 +94,19 @@ class ShopifyShop extends Model
      * What this shop can do right now. inventory_write also needs the company
      * feature shopify_push_stock and a configured location.
      *
-     * @return array{orders_read:bool,orders_write:bool,order_edit:bool,customers_write:bool,products_write:bool,inventory_write:bool,fulfillments_write:bool}
+     * @return array{orders_read:bool,orders_write:bool,orders_create:bool,orders_cancel:bool,order_edit:bool,customers_write:bool,products_write:bool,inventory_write:bool,fulfillments_write:bool}
      */
     public function capabilities(): array
     {
         $company = $this->company_id ? Company::query()->find($this->company_id) : null;
         $stock = ($company?->hasFeature('shopify_push_stock', false) ?? false) && filled($this->inventory_location_id);
+        $writeOrders = $this->hasScope('write_orders');
 
         return [
             'orders_read' => $this->hasScope('read_orders'),
-            'orders_write' => $this->hasScope('write_orders'),
+            'orders_write' => $writeOrders,
+            'orders_create' => $writeOrders,
+            'orders_cancel' => $writeOrders,
             'order_edit' => $this->hasScope('write_order_edits'),
             'customers_write' => $this->hasScope('write_customers'),
             'products_write' => $this->hasScope('write_products'),

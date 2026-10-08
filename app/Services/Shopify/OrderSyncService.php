@@ -51,6 +51,25 @@ class OrderSyncService
                 ->where('shopify_order_id', (int) $order['id'])
                 ->first();
 
+            $matchedCreationKey = false;
+            if (! $existing && ($creationKey = self::creationKeyFromPayload($order))) {
+                $pending = Order::query()
+                    ->where('company_id', $companyId)
+                    ->where('creation_key', $creationKey)
+                    ->first();
+                if ($pending) {
+                    if ((int) $pending->shopify_order_id !== (int) $order['id'] || (int) $pending->shopify_shop_id !== (int) $shop->id) {
+                        $pending->forceFill([
+                            'shopify_shop_id' => $shop->id,
+                            'shopify_order_id' => (int) $order['id'],
+                        ])->save();
+                        $pending = $pending->fresh();
+                    }
+                    $existing = $pending;
+                    $matchedCreationKey = true;
+                }
+            }
+
             $incomingAt = $order['updated_at'] ?? null;
             if ($existing && $incomingAt && $existing->shopify_updated_at && Carbon::parse($incomingAt)->lt($existing->shopify_updated_at)) {
                 $this->lastOutcome = 'ignored';
@@ -125,9 +144,13 @@ class OrderSyncService
                 'financial_status' => $attributes['financial_status'] ?? null,
             ];
             $matchedEcho = SyncEcho::matchingFields($shop->id, 'order', (string) $order['id'], $echoFields);
-            $isEcho = $matchedEcho !== null;
-            $pendingConflict = $existing && in_array($existing->shopify_sync_status, ['pending', 'failed'], true);
+            $isEcho = $matchedEcho !== null || $matchedCreationKey;
+            $incomingCancel = ! empty($order['cancelled_at']);
+            $pendingConflict = $existing && in_array($existing->shopify_sync_status, ['pending', 'failed'], true) && ! $incomingCancel;
             $attributes['shopify_sync_status'] = ($legacyConflict || $pendingConflict) && ! $isEcho ? 'conflict' : 'synced';
+            if ($matchedCreationKey) {
+                $attributes['flow_state'] = 'created';
+            }
 
             if (! $existing) {
                 $attributes['confirmation_status'] = ConfirmationStatus::defaultCode();
@@ -144,7 +167,7 @@ class OrderSyncService
             $trackedId = $existing?->id;
             try {
                 if ($isEcho && $existing) {
-                    SyncContext::suppressOrder($existing->id, $matchedEcho);
+                    SyncContext::suppressOrder($existing->id, $matchedEcho ?? true);
                 }
 
                 $local = Order::updateOrCreate(
@@ -180,7 +203,11 @@ class OrderSyncService
                     (bool) ($legacyConflict || $pendingConflict),
                 );
 
-                if (! $isEcho) {
+                if ($source === 'flow_user') {
+                    SyncEcho::remember($shop->id, 'order', (string) $order['id'], $echoFields, is_string($incomingAt) ? $incomingAt : null);
+                }
+
+                if (! $isEcho && $source !== 'flow_user') {
                     $trigger = $source === 'webhook' && ($order['_topic'] ?? '') === 'orders/edited'
                         ? 'shopify.order_edited'
                         : 'shopify.order_updated';
@@ -474,6 +501,41 @@ class OrderSyncService
             'company' => $company ? (string) $company : null,
             'url' => $url ? (string) $url : null,
         ];
+    }
+
+    /** lavfast_creation_key from note attributes, source_identifier, or a UUID tag. */
+    public static function creationKeyFromPayload(array $order): ?string
+    {
+        $attrs = $order['note_attributes'] ?? [];
+        if (is_array($attrs)) {
+            if (function_exists('array_is_list') && array_is_list($attrs)) {
+                foreach ($attrs as $attr) {
+                    if (! is_array($attr)) {
+                        continue;
+                    }
+                    $name = $attr['name'] ?? $attr['key'] ?? null;
+                    if ($name === 'lavfast_creation_key' && filled($attr['value'] ?? null)) {
+                        return (string) $attr['value'];
+                    }
+                }
+            } elseif (filled($attrs['lavfast_creation_key'] ?? null)) {
+                return (string) $attrs['lavfast_creation_key'];
+            }
+        }
+        if (filled($order['source_identifier'] ?? null)) {
+            return (string) $order['source_identifier'];
+        }
+        $tags = $order['tags'] ?? [];
+        if (is_string($tags)) {
+            $tags = array_map('trim', explode(',', $tags));
+        }
+        foreach ((array) $tags as $tag) {
+            if (is_string($tag) && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $tag)) {
+                return $tag;
+            }
+        }
+
+        return null;
     }
 
     private function outstanding(array $order): ?float

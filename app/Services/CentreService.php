@@ -64,7 +64,7 @@ class CentreService
 
     public function toConfirm(): int
     {
-        $q = Order::query();
+        $q = Order::query()->inWorkflowQueues();
         $this->confirmation->applyFilter($q, ConfirmationStatus::defaultCode());
 
         return $q->count();
@@ -73,7 +73,7 @@ class CentreService
     /** Confirmed, not shipped to a carrier, waiting for (re)assignment / preparation. */
     public function toProcess(): int
     {
-        return Order::query()->awaitingAssignment()->whereDoesntHave('speedafShipments', $this->activeShipment())
+        return Order::query()->inWorkflowQueues()->awaitingAssignment()->whereDoesntHave('speedafShipments', $this->activeShipment())
             ->whereDoesntHave('ozonShipments', $this->activeOzon())
             ->whereDoesntHave('siftShipments', $this->activeSift())->count();
     }

@@ -34,6 +34,8 @@ class ConfirmationController extends Controller
 
         $agent = (string) $request->query('agent', '');
         $query = Order::query()
+            ->inWorkflowQueues()
+            ->visibleTo($request->user())
             ->with(['shop:id,shop_domain,shop_name', 'assignedUser:id,name'])
             ->orderByRaw('COALESCE(shopify_created_at, created_at) DESC')->orderByDesc('id');
 
@@ -53,7 +55,7 @@ class ConfirmationController extends Controller
 
         $orders = collect($paginator->items())->map(fn (Order $order) => $this->listPayload($order));
 
-        $countBase = Order::query();
+        $countBase = Order::query()->inWorkflowQueues()->visibleTo($request->user());
         ConfirmationCentreController::applyAgentFilter($countBase, $agent, $request->user()?->id);
         if ($search !== '') {
             $countBase->where(function ($q) use ($search) {

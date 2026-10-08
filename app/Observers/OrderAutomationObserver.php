@@ -14,6 +14,10 @@ class OrderAutomationObserver
 {
     public function created(Order $order): void
     {
+        // A Flow draft or an in-flight Shopify create is not a real order yet.
+        if (in_array($order->flow_state, ['draft', 'creating'], true)) {
+            return;
+        }
         $this->safe(fn (AutomationDispatcher $d) => $d->orderCreated($order));
     }
 

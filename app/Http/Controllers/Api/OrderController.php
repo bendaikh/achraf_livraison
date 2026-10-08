@@ -33,7 +33,7 @@ class OrderController extends Controller
 
     public function index(Request $request)
     {
-        $q = Order::query()->with(['deliveryStatus', 'driver', 'assignedUser', 'shop:id,shop_domain,shop_name', 'speedafShipments', 'ozonShipments.deliveryNote', 'siftShipments']);
+        $q = Order::query()->with(['deliveryStatus', 'driver', 'assignedUser', 'createdByUser:id,name', 'commercialUser:id,name', 'shop:id,shop_domain,shop_name', 'speedafShipments', 'ozonShipments.deliveryNote', 'siftShipments']);
 
         $this->applyFilters($q, $request);
 
@@ -132,6 +132,12 @@ class OrderController extends Controller
         if ($request->filled('source')) {
             $q->where('source', $request->query('source'));
         }
+        if ($request->query('flow_state') === 'draft') {
+            $q->where('flow_state', 'draft');
+        }
+        if ($user = $request->user()) {
+            $q->visibleTo($user);
+        }
     }
 
     /**
@@ -146,6 +152,9 @@ class OrderController extends Controller
         $limit = min(max($request->integer('limit', 30), 5), 100);
         $base = Order::query();
         $this->applyFilters($base, $request);
+        if ($request->query('flow_state') !== 'draft') {
+            $base->inWorkflowQueues();
+        }
         $counts = (clone $base)->selectRaw('delivery_status, COUNT(*) c')->groupBy('delivery_status')->pluck('c', 'delivery_status');
         $scope = function ($q, string $code) use ($nullCode) {
             $code === $nullCode ? $q->where(fn ($w) => $w->where('delivery_status', $code)->orWhereNull('delivery_status')) : $q->where('delivery_status', $code);
@@ -243,8 +252,10 @@ class OrderController extends Controller
         return response()->json(['message' => $agent ? "{$n} commande(s) assignée(s) à {$agent->name}." : "Agent retiré de {$n} commande(s).", 'updated' => $n]);
     }
 
-    public function show(Order $order)
+    public function show(Request $request, Order $order)
     {
+        abort_unless(Order::query()->visibleTo($request->user())->whereKey($order->id)->exists(), 404);
+
         return new OrderResource($order->load($this->detailRelations()));
     }
 
@@ -381,7 +392,7 @@ class OrderController extends Controller
 
     protected function detailRelations(): array
     {
-        return ['deliveryStatus', 'driver', 'assignedUser', 'assignedByUser:id,name', 'shop:id,shop_domain,shop_name', 'missions.driver', 'histories.user', 'speedafShipments', 'ozonShipments.deliveryNote', 'siftShipments', 'fulfillments'];
+        return ['deliveryStatus', 'driver', 'assignedUser', 'assignedByUser:id,name', 'createdByUser:id,name', 'commercialUser:id,name', 'shop:id,shop_domain,shop_name', 'missions.driver', 'histories.user', 'speedafShipments', 'ozonShipments.deliveryNote', 'siftShipments', 'fulfillments'];
     }
 
     protected function validated(Request $request, bool $partial = false): array

@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\LogisticsPartnerController;
 use App\Http\Controllers\Api\MetaController;
 use App\Http\Controllers\Api\MissionController;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\OrderLifecycleController;
 use App\Http\Controllers\Api\OrderItemController;
 use App\Http\Controllers\Api\OzonIntegrationController;
 use App\Http\Controllers\Api\OzonOrderController;
@@ -105,11 +106,19 @@ Route::middleware(['web', 'auth', 'admin.access'])->group(function () {
 
     Route::get('orders', [OrderController::class, 'index']);
     Route::get('orders/kanban', [OrderController::class, 'kanban']);
+    Route::get('orders/actions', [OrderLifecycleController::class, 'actions']);
+    Route::get('orders/commercials', [OrderLifecycleController::class, 'commercials']);
+    Route::post('orders/flow', [OrderLifecycleController::class, 'store'])->middleware('can:orders.create');
+    Route::post('orders/cancel', [OrderLifecycleController::class, 'cancelMany'])->middleware('can:orders.cancel');
+    Route::post('orders/delete-drafts', [OrderLifecycleController::class, 'destroyMany'])->middleware('can:orders.delete_draft');
     Route::post('orders/bulk-status', [OrderController::class, 'bulkStatus']);
     Route::post('orders/assign-agent', [OrderController::class, 'assignAgent'])->middleware('can:orders.assign_agent');
-    Route::post('orders', [OrderController::class, 'store']);
+    Route::post('orders', [OrderController::class, 'store'])->middleware('can:orders.create');
     Route::get('orders/{order}', [OrderController::class, 'show']);
-    Route::put('orders/{order}', [OrderController::class, 'update']);
+    Route::put('orders/{order}', [OrderController::class, 'update'])->middleware('can:orders.edit');
+    Route::post('orders/{order}/flow-retry', [OrderLifecycleController::class, 'retry'])->middleware('can:orders.create');
+    Route::post('orders/{order}/cancel', [OrderLifecycleController::class, 'cancel'])->middleware('can:orders.cancel');
+    Route::delete('orders/{order}/draft', [OrderLifecycleController::class, 'destroy'])->middleware('can:orders.delete_draft');
     Route::post('orders/{order}/status', [OrderController::class, 'changeStatus']);
     Route::post('orders/{order}/confirmation', [OrderController::class, 'changeConfirmation']);
 

@@ -75,6 +75,11 @@ GQL;
                 'shop_money' => ['amount' => data_get($node, 'totalShippingPriceSet.shopMoney.amount')],
             ],
             'payment_gateway_names' => $node['paymentGatewayNames'] ?? [],
+            'source_identifier' => $node['sourceIdentifier'] ?? null,
+            'note_attributes' => array_map(fn ($attr) => [
+                'name' => $attr['key'] ?? $attr['name'] ?? '',
+                'value' => $attr['value'] ?? '',
+            ], $node['customAttributes'] ?? []),
             'customer' => [
                 'id' => isset($customer['legacyResourceId']) ? (int) $customer['legacyResourceId'] : null,
                 'first_name' => $customer['firstName'] ?? null,

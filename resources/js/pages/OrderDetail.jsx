@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, MoreHorizontal } from 'lucide-react';
 import api, { errorMessage } from '../lib/api';
 import { useMeta } from '../context/MetaContext';
 import { formatDH, formatDateTime, formatDate } from '../lib/format';
@@ -14,8 +14,10 @@ import StatusChangeForm from '../components/orders/StatusChangeForm';
 import DeliveryBlock from '../components/delivery/DeliveryBlock';
 import SyncStatusBadge from '../components/shopify/SyncStatusBadge';
 import OrderForm from '../components/orders/OrderForm';
+import OrderCreate from '../components/orders/OrderCreate';
+import { CancelOrderDialog, DeleteDraftDialog } from '../components/orders/OrderLifecycleDialogs';
 
-const HISTORY_KINDS = { confirmation: 'Confirmation', affectation: 'Affectation', produits: 'Produits', expedition: 'Expédition', appel: 'Appel', remise: 'Remise', agent: 'Agent', sav: 'SAV', ozon: 'Ozon Express', sift: 'Sift', shopify: 'Shopify' };
+const HISTORY_KINDS = { confirmation: 'Confirmation', affectation: 'Affectation', produits: 'Produits', expedition: 'Expédition', appel: 'Appel', remise: 'Remise', agent: 'Agent', sav: 'SAV', ozon: 'Ozon Express', sift: 'Sift', shopify: 'Shopify', commande: 'Commande' };
 
 function Info({ label, children }) {
     return (
@@ -33,6 +35,10 @@ export default function OrderDetail() {
     const [error, setError] = useState(null);
     const [busy, setBusy] = useState(false);
     const [editing, setEditing] = useState(false);
+    const [menu, setMenu] = useState(false);
+    const [canceling, setCanceling] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [resuming, setResuming] = useState(false);
     const { can } = useAuth();
 
     const load = useCallback(async () => {
@@ -76,10 +82,10 @@ export default function OrderDetail() {
                     status={order.shopify_sync_status}
                     error={order.shopify_sync_error}
                     journalHref="#historique"
-                    onRetry={order.shopify_sync_status === 'failed' && can('orders.edit_items') ? async () => {
+                    onRetry={order.shopify_sync_status === 'failed' && (order.creation_key ? can('orders.create') : can('orders.edit_items')) ? async () => {
                         setError(null);
                         try {
-                            await api.post(`/orders/${order.id}/shopify-retry`);
+                            await api.post(order.creation_key ? `/orders/${order.id}/flow-retry` : `/orders/${order.id}/shopify-retry`);
                             await load();
                         } catch (e) {
                             setError(errorMessage(e));
@@ -109,9 +115,30 @@ export default function OrderDetail() {
                         Reprendre la version Shopify
                     </Button>
                 ) : null}
-                <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>Modifier</Button>
+                {can('orders.edit') ? <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>Modifier</Button> : null}
+                {order.is_draft && can('orders.create') ? <Button size="sm" onClick={() => setResuming(true)}>Compléter le brouillon</Button> : null}
+                <div className="relative">
+                    <Button size="sm" variant="ghost" aria-label="Actions" aria-expanded={menu} onClick={() => setMenu((v) => !v)}>
+                        <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                    {menu ? (
+                        <div className="absolute right-0 z-20 mt-1 w-56 rounded-xl border border-slate-200 bg-white py-1 text-sm shadow-lg">
+                            {order.can_cancel ? (
+                                <button type="button" className="block w-full px-3 py-2 text-left hover:bg-slate-50" onClick={() => { setMenu(false); setCanceling(true); }}>Annuler la commande</button>
+                            ) : null}
+                            {order.can_delete_draft ? (
+                                <button type="button" className="block w-full px-3 py-2 text-left text-rose-700 hover:bg-rose-50" onClick={() => { setMenu(false); setDeleting(true); }}>Supprimer le brouillon</button>
+                            ) : null}
+                            {(order.cancel_blockers || []).map((reason) => (
+                                <p key={reason} className="px-3 py-2 text-xs text-slate-500">{reason}</p>
+                            ))}
+                        </div>
+                    ) : null}
+                </div>
             </div>
             <Alert>{error}</Alert>
+            {order.flow_notice ? <div className="rounded-xl bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900">{order.flow_notice}</div> : null}
+            {order.is_draft ? <div className="rounded-xl bg-amber-100 px-3 py-2 text-sm font-bold text-amber-900">Brouillon</div> : null}
             <BlockedClientAlert block={order.client_blocked} />
 
             <div className="grid gap-4 lg:grid-cols-3">
@@ -134,7 +161,15 @@ export default function OrderDetail() {
                             <Info label="À encaisser">À encaisser : {formatDH(order.amount_due ?? 0)}</Info>
                             <Info label="Paiement">{order.payment_label || meta.paymentMap[order.payment_method]?.label || order.payment_method}</Info>
                             <Info label="Source">{order.source}</Info>
+                            <Info label="Créée par">{order.created_by_name}</Info>
+                            <Info label="Commercial">{order.commercial?.name}</Info>
                             <Info label="Utilisateur assigné">{order.assigned_user?.name}</Info>
+                            {order.shopify_admin_url ? (
+                                <Info label="Shopify">
+                                    <a href={order.shopify_admin_url} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">{order.reference}</a>
+                                </Info>
+                            ) : null}
+                            {order.cancel_reason_label ? <Info label="Annulation">{order.cancel_reason_label}{order.cancel_comment ? ` — ${order.cancel_comment}` : ''}</Info> : null}
                             <Info label="Date">{formatDateTime(order.created_at)}</Info>
                             {order.postponed_at ? <Info label="Reportée au">{order.postponed_at}</Info> : null}
                             {order.status_reason ? <Info label="Motif">{order.status_reason}</Info> : null}
@@ -308,6 +343,33 @@ export default function OrderDetail() {
                     setOrder(saved);
                 }}
             />
+            <OrderCreate
+                open={resuming}
+                order={order}
+                onClose={() => setResuming(false)}
+                onSaved={(saved) => {
+                    setResuming(false);
+                    setOrder(saved);
+                }}
+            />
+            {canceling ? (
+                <CancelOrderDialog
+                    orders={order}
+                    onClose={() => setCanceling(false)}
+                    onDone={({ single }) => {
+                        setCanceling(false);
+                        if (single?.data) setOrder(single.data);
+                        else load();
+                    }}
+                />
+            ) : null}
+            {deleting ? (
+                <DeleteDraftDialog
+                    orders={order}
+                    onClose={() => setDeleting(false)}
+                    onDone={() => { window.location.assign('/commandes'); }}
+                />
+            ) : null}
         </div>
     );
 }

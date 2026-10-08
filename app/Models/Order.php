@@ -92,6 +92,19 @@ class Order extends Model
         'discount_applications',
         'shopify_refunds',
         'amount_due_stale',
+        'created_by',
+        'commercial_user_id',
+        'creation_key',
+        'flow_state',
+        'deleted_at',
+        'cancelled_at',
+        'cancelled_by',
+        'cancel_reason',
+        'cancel_comment',
+        'extra_fees',
+        'discount_kind',
+        'discount_value',
+        'flow_notice',
     ];
 
     protected $attributes = [
@@ -118,6 +131,10 @@ class Order extends Model
             'discount_applications' => 'array',
             'shopify_refunds' => 'array',
             'amount_due_stale' => 'boolean',
+            'extra_fees' => 'array',
+            'discount_value' => 'decimal:2',
+            'deleted_at' => 'datetime',
+            'cancelled_at' => 'datetime',
             'shopify_synced_at' => 'datetime',
             'shopify_created_at' => 'datetime',
             'shopify_updated_at' => 'datetime',
@@ -135,6 +152,10 @@ class Order extends Model
 
     protected static function booted(): void
     {
+        static::addGlobalScope('not_deleted', function (Builder $builder) {
+            $builder->whereNull($builder->getModel()->qualifyColumn('deleted_at'));
+        });
+
         // T9 — normalized phone = client identity (Clients module, block alerts).
         static::saving(function (Order $order) {
             if ($order->isDirty('phone') || $order->isDirty('shipping_address') || $order->phone_key === null) {
@@ -150,9 +171,9 @@ class Order extends Model
                 $order->amount_paid = $order->total_price;
                 $order->total_outstanding = 0;
             }
-            $watch = ['total_price', 'amount_paid', 'total_outstanding', 'financial_status', 'discount_total', 'line_items', 'shopify_refunds'];
+            $watch = ['total_price', 'amount_paid', 'total_outstanding', 'financial_status', 'discount_total', 'line_items', 'shopify_refunds', 'cancelled_at', 'status'];
             if ($order->amount_due === null || $order->isDirty($watch)) {
-                $due = app(AmountDue::class)->calculate($order);
+                $due = $order->cancelled_at ? 0.0 : app(AmountDue::class)->calculate($order);
                 if ($order->amount_due === null || abs((float) $order->amount_due - $due) >= 0.009) {
                     $order->amount_due = $due;
                 }
@@ -279,6 +300,26 @@ class Order extends Model
     public function assignedUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_user_id');
+    }
+
+    public function createdByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function commercialUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'commercial_user_id');
+    }
+
+    public function cancelledByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cancelled_by');
+    }
+
+    public function savRequests(): HasMany
+    {
+        return $this->hasMany(SavRequest::class);
     }
 
     /** Configurable status referenced by code (includes inactive statuses for old orders). */
@@ -651,6 +692,39 @@ class Order extends Model
     }
 
     /* ----------------------------------------------------------------- scopes */
+
+    /**
+     * Without orders.view_all, a user sees orders they created, sell, or confirm.
+     */
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        if ($user->can('orders.view_all')) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $w) use ($user) {
+            $w->where('created_by', $user->id)
+                ->orWhere('commercial_user_id', $user->id)
+                ->orWhere('assigned_user_id', $user->id);
+        });
+    }
+
+    /** Confirmation and expédition queues: real orders only, not drafts or cancellations. */
+    public function scopeInWorkflowQueues(Builder $query): Builder
+    {
+        return $query
+            ->where(function (Builder $w) {
+                $w->whereNull('flow_state')->orWhere('flow_state', 'created');
+            })
+            ->where(function (Builder $w) {
+                $w->whereNull('status')->orWhere('status', '!=', 'cancelled');
+            });
+    }
+
+    public function isDraft(): bool
+    {
+        return $this->flow_state === 'draft';
+    }
 
     public function scopeInDeliveryCategories(Builder $query, array $categories): Builder
     {
