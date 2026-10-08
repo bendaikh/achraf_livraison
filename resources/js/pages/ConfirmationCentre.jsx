@@ -275,7 +275,8 @@ function Totals({ order, full }) {
     const subtotal = full?.items_subtotal ?? null;
     const shipping = Number(order.shipping_price || 0);
     const total = Number(order.total_price || 0);
-    const paid = full?.payment_method === 'paye';
+    const paidAmount = Number(order.amount_paid ?? (full?.amount_paid || 0));
+    const due = Number(order.amount_due ?? full?.amount_due ?? (full?.payment_method === 'paye' ? 0 : total));
     return (
         <div className="space-y-1.5 text-sm">
             <Row label="Sous-total produits" value={subtotal !== null ? formatDH(subtotal) : '—'} />
@@ -285,10 +286,11 @@ function Totals({ order, full }) {
                 <span className="font-semibold text-slate-700">Total</span>
                 <span className="text-base font-extrabold text-slate-900">{formatDH(total)}</span>
             </div>
-            <Row label="Total payé" value={paid ? formatDH(total) : formatDH(0)} />
+            <Row label="Déjà payé" value={formatDH(paidAmount)} />
+            <Row label="Paiement" value={order.payment_label || full?.payment_label || '—'} />
             <div className="flex items-center justify-between">
-                <span className="font-semibold text-slate-700">Montant à encaisser</span>
-                <span className="font-bold text-blue-700">{formatDH(paid ? 0 : total)}</span>
+                <span className="font-semibold text-slate-700">À encaisser</span>
+                <span className="font-bold text-blue-700">{formatDH(due)}</span>
             </div>
         </div>
     );

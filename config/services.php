@@ -38,8 +38,8 @@ return [
     'shopify' => [
         'client_id' => env('SHOPIFY_CLIENT_ID'),
         'client_secret' => env('SHOPIFY_CLIENT_SECRET'),
-        'scopes' => env('SHOPIFY_SCOPES', 'read_orders,read_customers,read_products,read_inventory'),
-        'api_version' => env('SHOPIFY_API_VERSION', '2025-01'),
+        'scopes' => env('SHOPIFY_SCOPES', 'read_orders,write_orders,write_order_edits,read_customers,write_customers,read_products,write_products,read_inventory,write_inventory,read_locations,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders,read_fulfillments,write_fulfillments'),
+        'api_version' => env('SHOPIFY_API_VERSION', '2026-10'),
     ],
 
     'meta' => [

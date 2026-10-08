@@ -36,7 +36,10 @@ export default function ShopifyIntegration() {
     const [savingCredentials, setSavingCredentials] = useState(false);
     const [connecting, setConnecting] = useState(false);
     const [syncing, setSyncing] = useState(false);
+    const [registering, setRegistering] = useState(false);
     const [disconnecting, setDisconnecting] = useState(false);
+    const [logs, setLogs] = useState([]);
+    const [logFilter, setLogFilter] = useState({ direction: '', status: '', entity: '' });
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
 
@@ -49,6 +52,12 @@ export default function ShopifyIntegration() {
             setScopes(statusRes.data.scopes || 'read_orders,read_customers');
             if (statusRes.data.shop?.shop_domain) {
                 setShopInput(statusRes.data.shop.shop_domain);
+            }
+            if (statusRes.data.connected) {
+                const logsRes = await window.axios.get('/api/integrations/shopify/logs');
+                setLogs(logsRes.data.data || []);
+            } else {
+                setLogs([]);
             }
         } catch (err) {
             setError(err.response?.data?.message || 'Impossible de charger l’intégration Shopify.');
@@ -122,6 +131,32 @@ export default function ShopifyIntegration() {
         }
     }
 
+    async function handleReconcile() {
+        setSyncing(true);
+        setError('');
+        setMessage('');
+        try {
+            const { data } = await window.axios.post('/api/integrations/shopify/reconcile');
+            setMessage(data.message || 'Synchronisation lancée.');
+            await load();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Synchronisation impossible.');
+        } finally {
+            setSyncing(false);
+        }
+    }
+
+    async function retryLog(id) {
+        setError('');
+        try {
+            await window.axios.post(`/api/integrations/shopify/logs/${id}/retry`);
+            setMessage('Nouvel essai programmé.');
+            await load();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Impossible de relancer.');
+        }
+    }
+
     async function handleSync() {
         setSyncing(true);
         setError('');
@@ -134,6 +169,20 @@ export default function ShopifyIntegration() {
             setError(err.response?.data?.message || 'Synchronisation impossible.');
         } finally {
             setSyncing(false);
+        }
+    }
+
+    async function handleRegisterWebhooks() {
+        setRegistering(true);
+        setError('');
+        setMessage('');
+        try {
+            const { data } = await window.axios.post('/api/integrations/shopify/webhooks');
+            setMessage(data.message);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Impossible de réenregistrer les webhooks.');
+        } finally {
+            setRegistering(false);
         }
     }
 
@@ -187,6 +236,12 @@ export default function ShopifyIntegration() {
             {error ? (
                 <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
                     {error}
+                </div>
+            ) : null}
+
+            {connected && status.shop.needs_reconnect ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+                    Nouvelles autorisations Shopify nécessaires — Reconnecter Shopify
                 </div>
             ) : null}
 
@@ -279,6 +334,7 @@ export default function ShopifyIntegration() {
                                         </Link>
                                     </span>
                                     <span>Dernière sync : {formatDate(status.shop.last_synced_at)}</span>
+                                    <span>Commandes réconciliées : {formatDate(status.shop.orders_reconciled_at)}</span>
                                 </div>
                             ) : null}
                         </div>
@@ -288,12 +344,29 @@ export default function ShopifyIntegration() {
                         <div className="flex flex-wrap gap-2">
                             <button
                                 type="button"
+                                onClick={handleReconcile}
+                                disabled={syncing}
+                                className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-700 disabled:opacity-60"
+                            >
+                                <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+                                {syncing ? 'Sync…' : 'Synchroniser maintenant'}
+                            </button>
+                            <button
+                                type="button"
                                 onClick={handleSync}
                                 disabled={syncing}
                                 className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-700 disabled:opacity-60"
                             >
                                 <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
-                                {syncing ? 'Sync…' : 'Synchroniser'}
+                                {syncing ? 'Sync…' : 'Importer les 100 dernières'}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleRegisterWebhooks}
+                                disabled={registering}
+                                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                            >
+                                {registering ? 'Enregistrement…' : 'Réenregistrer les webhooks'}
                             </button>
                             <button
                                 type="button"
@@ -334,6 +407,51 @@ export default function ShopifyIntegration() {
                     </form>
                 ) : null}
             </section>
+
+            {connected ? (
+                <section id="journal" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/40 sm:p-7">
+                    <h2 className="text-base font-bold text-slate-900">Journal de synchronisation</h2>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                        <select value={logFilter.direction} onChange={(e) => setLogFilter({ ...logFilter, direction: e.target.value })} className={inputClass + ' h-9 w-auto'}>
+                            <option value="">Direction</option>
+                            <option value="in">Entrant</option>
+                            <option value="out">Sortant</option>
+                        </select>
+                        <select value={logFilter.status} onChange={(e) => setLogFilter({ ...logFilter, status: e.target.value })} className={inputClass + ' h-9 w-auto'}>
+                            <option value="">Statut</option>
+                            <option value="success">Succès</option>
+                            <option value="failed">Échec</option>
+                            <option value="pending">En attente</option>
+                            <option value="echo">Écho</option>
+                        </select>
+                        <select value={logFilter.entity} onChange={(e) => setLogFilter({ ...logFilter, entity: e.target.value })} className={inputClass + ' h-9 w-auto'}>
+                            <option value="">Entité</option>
+                            <option value="order">Commande</option>
+                            <option value="product">Produit</option>
+                            <option value="fulfillment">Fulfillment</option>
+                        </select>
+                    </div>
+                    <ul className="mt-4 divide-y divide-slate-100 text-sm">
+                        {logs
+                            .filter((row) => (!logFilter.direction || row.direction === logFilter.direction) && (!logFilter.status || row.status === logFilter.status) && (!logFilter.entity || row.entity_type === logFilter.entity))
+                            .map((row) => (
+                                <li key={row.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                                    <span>
+                                        <span className="font-semibold text-slate-800">{row.entity_type} · {row.action}</span>
+                                        <span className="text-slate-500"> · {row.direction} · {row.status}</span>
+                                        {row.error ? <span className="block text-xs text-rose-600">{row.error}</span> : null}
+                                    </span>
+                                    {row.status === 'failed' ? (
+                                        <button type="button" onClick={() => retryLog(row.id)} className="text-sm font-semibold text-blue-600">
+                                            Réessayer
+                                        </button>
+                                    ) : null}
+                                </li>
+                            ))}
+                        {logs.length === 0 ? <li className="py-3 text-slate-500">Aucune ligne pour le moment.</li> : null}
+                    </ul>
+                </section>
+            ) : null}
         </div>
     );
 }

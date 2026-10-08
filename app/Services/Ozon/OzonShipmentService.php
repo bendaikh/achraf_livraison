@@ -147,7 +147,7 @@ class OzonShipmentService
             return isset($options['price']) && is_numeric($options['price']) ? round(max(0, (float) $options['price']), 2) : 0.0;
         }
 
-        return $order->isCod() ? round((float) $order->total_price, 2) : 0.0;
+        return round($order->amountDue(), 2);
     }
 
     /** @return list<array{ref:string, qnty:int}> only lines that carry a real SKU. */
@@ -534,7 +534,7 @@ class OzonShipmentService
             $data['reason'] = Str::limit($comment ?: $raw, 250, '');
         }
         if ($status->category === 'succes') {
-            $data['collected_amount'] = (float) ($shipment->price ?? ($order->isCod() ? $order->total_price : 0));
+            $data['collected_amount'] = (float) ($shipment->price ?? $order->amountDue());
         }
         $this->workflow->applyCarrierStatus($order, $status, $data, "Ozon Express ({$source}) : {$raw}".($comment ? ' — '.Str::limit($comment, 150) : ''));
 

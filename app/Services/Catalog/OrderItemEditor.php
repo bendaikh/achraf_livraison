@@ -7,6 +7,7 @@ use App\Models\OrderStatusHistory;
 use App\Models\ProductVariant;
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\Shopify\ShopifyOrderEditService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -17,14 +18,19 @@ use Illuminate\Validation\ValidationException;
  * with the user and date/time, and the total is recalculated by the difference of the lines
  * subtotal (shipping, discounts and taxes already in the total are kept).
  *
- * These are Lav'Fast Flow changes only: nothing is pushed to Shopify (each history row carries
- * scope=internal, shopify=not_pushed so a future "push to Shopify" can find them). After an
- * internal edit, Shopify order updates no longer overwrite the lines (see OrderSyncService).
+ * A Shopify-connected order (shop + shopify_order_id) is edited through the order-edit API
+ * first. Manual orders, and orders that only carry a Shopify id without a shop, stay internal
+ * (scope=internal, shopify=not_pushed). Legacy rows with items_edited_at are still frozen.
  */
 class OrderItemEditor
 {
+    public function __construct(protected ShopifyOrderEditService $shopify) {}
+
     public function add(Order $order, ProductVariant $variant, int $quantity, ?float $price, User $user): array
     {
+        if ($this->shopify->isConnectedOrder($order)) {
+            return $this->shopify->add($order, $variant, $quantity, $price, $user);
+        }
         $warning = $this->checkStock($variant, $quantity);
 
         return $this->mutate($order, $user, function (array $lines) use ($variant, $quantity, $price) {
@@ -37,6 +43,9 @@ class OrderItemEditor
 
     public function updateQuantity(Order $order, string $key, int $quantity, User $user): array
     {
+        if ($this->shopify->isConnectedOrder($order)) {
+            return $this->shopify->updateQuantity($order, $key, $quantity, $user);
+        }
         if ($quantity < 1) {
             throw ValidationException::withMessages(['quantity' => 'La quantité doit être au moins 1 (utilisez « Supprimer de la commande »).']);
         }
@@ -60,6 +69,9 @@ class OrderItemEditor
 
     public function updatePrice(Order $order, string $key, float $price, User $user): array
     {
+        if ($this->shopify->isConnectedOrder($order)) {
+            return $this->shopify->updatePrice($order, $key, $price, $user);
+        }
         if ($price < 0) {
             throw ValidationException::withMessages(['price' => 'Prix invalide.']);
         }
@@ -79,6 +91,10 @@ class OrderItemEditor
 
     public function remove(Order $order, string $key, User $user): array
     {
+        if ($this->shopify->isConnectedOrder($order)) {
+            return $this->shopify->remove($order, $key, $user);
+        }
+
         return $this->mutate($order, $user, function (array $lines) use ($key) {
             $i = $this->indexOf($lines, $key);
             $removed = $lines[$i];
@@ -91,6 +107,9 @@ class OrderItemEditor
 
     public function replace(Order $order, string $key, ProductVariant $variant, int $quantity, ?float $price, User $user): array
     {
+        if ($this->shopify->isConnectedOrder($order)) {
+            return $this->shopify->replace($order, $key, $variant, $quantity, $price, $user);
+        }
         $warning = $this->checkStock($variant, $quantity);
 
         return $this->mutate($order, $user, function (array $lines) use ($key, $variant, $quantity, $price) {

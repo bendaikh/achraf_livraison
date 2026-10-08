@@ -287,12 +287,19 @@ class ProductCatalogTest extends TestCase
     {
         $this->signInAdmin();
         $shop = $this->seedCatalog();
-        $housse = ProductVariant::where('sku', 'HOU-01')->first();
         $sync = app(\App\Services\Shopify\OrderSyncService::class);
         $payload = ['id' => 777, 'name' => '#1777', 'order_number' => 1777, 'total_price' => '300.00', 'currency' => 'MAD',
             'line_items' => [['id' => 1, 'title' => 'Tapis 3D', 'quantity' => 1, 'price' => '300.00', 'sku' => 'TAP-CLIO4', 'variant_id' => 111, 'product_id' => 11]]];
         $order = $sync->upsertFromShopifyPayload($shop, $payload);
-        $this->postJson("/api/orders/{$order->id}/items", ['variant_id' => $housse->id, 'quantity' => 1])->assertOk();
+        // Connected orders are edited in Shopify (Part 2). This test keeps the legacy freeze:
+        // lines marked items_edited_at stay local when a later Shopify payload arrives.
+        $order->forceFill([
+            'items_edited_at' => now(),
+            'line_items' => array_merge($order->line_items, [[
+                'id' => null, 'title' => 'Housse volant', 'quantity' => 1, 'price' => '150.00', 'sku' => 'HOU-01',
+            ]]),
+            'total_price' => 450,
+        ])->save();
 
         $payload['note'] = 'Nouvelle note Shopify';
         $sync->upsertFromShopifyPayload($shop, $payload);

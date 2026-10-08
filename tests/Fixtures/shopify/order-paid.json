@@ -1,0 +1,23 @@
+{
+  "id": 9001,
+  "name": "#9001",
+  "order_number": 9001,
+  "email": "client@example.com",
+  "phone": "0612000000",
+  "note": null,
+  "tags": "vip",
+  "financial_status": "paid",
+  "fulfillment_status": null,
+  "currency": "MAD",
+  "total_price": "450.00",
+  "total_outstanding": "0.00",
+  "total_discounts": "0.00",
+  "payment_gateway_names": ["shopify_payments"],
+  "created_at": "2026-10-08T10:00:00Z",
+  "updated_at": "2026-10-08T10:00:00Z",
+  "customer": {"id": 42, "first_name": "Sara", "last_name": "Bennani", "email": "client@example.com", "phone": "0612000000"},
+  "shipping_address": {"first_name": "Sara", "last_name": "Bennani", "address1": "12 rue des Orangers", "city": "Casablanca", "phone": "0612000000"},
+  "line_items": [
+    {"id": 1, "title": "Tapis Peugeot 208", "variant_title": null, "quantity": 1, "price": "300.00", "catalog_price": "300.00", "sku": "TAP-208", "product_id": 11, "variant_id": 111}
+  ]
+}

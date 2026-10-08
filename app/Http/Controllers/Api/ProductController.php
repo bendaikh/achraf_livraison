@@ -158,6 +158,65 @@ class ProductController extends Controller
         return response()->json(['message' => $errors ? 'Erreur : '.implode(' | ', $errors) : 'Webhooks produits et stock enregistrés.'], $errors ? 422 : 200);
     }
 
+    public function update(Request $request, Product $product, \App\Services\Shopify\ShopifyProductPushService $push): JsonResponse
+    {
+        $this->owns($request, $product);
+        $data = $request->validate([
+            'title' => ['sometimes', 'string', 'max:255'],
+            'description_html' => ['sometimes', 'nullable', 'string', 'max:20000'],
+        ]);
+        $updated = $push->updateProduct($product, $data, $request->user());
+
+        return response()->json(['data' => [
+            'id' => $updated->id,
+            'title' => $updated->title,
+            'shopify_sync_status' => $updated->shopify_sync_status,
+            'images_editable' => false,
+        ]]);
+    }
+
+    public function updateVariant(Request $request, ProductVariant $variant, \App\Services\Shopify\ShopifyProductPushService $push): JsonResponse
+    {
+        $product = $variant->product;
+        abort_unless($product && (int) $product->company_id === (int) $request->user()->resolveCompanyId(), 404);
+        $data = $request->validate([
+            'price' => ['sometimes', 'numeric', 'min:0'],
+            'compare_at_price' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'sku' => ['sometimes', 'nullable', 'string', 'max:80'],
+            'barcode' => ['sometimes', 'nullable', 'string', 'max:80'],
+            'inventory_quantity' => ['sometimes', 'integer', 'min:0'],
+        ]);
+        $updated = $push->updateVariant($variant, $data, $request->user());
+
+        return response()->json(['data' => $updated->toCatalogArray()]);
+    }
+
+    public function retry(Request $request, Product $product): JsonResponse
+    {
+        $this->owns($request, $product);
+        $log = \App\Models\ShopifySyncLog::query()
+            ->where('company_id', $product->company_id)
+            ->where('entity_type', 'product')
+            ->where('entity_id', $product->id)
+            ->where('direction', 'out')
+            ->where('status', 'failed')
+            ->latest('id')
+            ->first();
+        if (! $log) {
+            return response()->json(['message' => 'Aucun échec à relancer.'], 422);
+        }
+        $log->forceFill(['status' => 'pending', 'error' => null])->save();
+        $product->forceFill(['shopify_sync_status' => 'pending', 'shopify_sync_error' => null])->save();
+        \App\Jobs\RetryShopifyOutboundJob::dispatch($log->id)->onQueue('shopify');
+
+        return response()->json(['message' => 'Nouvel essai programmé.']);
+    }
+
+    protected function owns(Request $request, Product $product): void
+    {
+        abort_unless((int) $product->company_id === (int) $request->user()->resolveCompanyId(), 404);
+    }
+
     protected function collections(int $companyId): array
     {
         return Product::query()->forCompany($companyId)->whereNull('deleted_in_shopify_at')->pluck('collections')

@@ -9,11 +9,13 @@ use App\Models\OrderDiscount;
 use App\Models\OrderStatusHistory;
 use App\Models\User;
 use App\Services\ConfirmationStatusService;
+use App\Services\Shopify\ShopifyOrderEditService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * T5 — Centre de confirmation: agent / queue stats, queue navigation, call log, discounts.
@@ -155,6 +157,35 @@ class ConfirmationCentreController extends Controller
         ], ['value.gt' => 'La remise doit être supérieure à 0.']);
         /** @var User $user */
         $user = $request->user();
+        $editor = app(ShopifyOrderEditService::class);
+        if ($editor->isConnectedOrder($order)) {
+            if (! ($order->shop->capabilities()['order_edit'] ?? false)) {
+                throw ValidationException::withMessages(['shopify' => ShopifyOrderEditService::UNAUTHORIZED]);
+            }
+            $before = (float) $order->total_price;
+            $pushed = $editor->pushDiscount($order, $data['type'], (float) $data['value'], $data['reason'] ?? null, $user);
+            $updated = $pushed['order'];
+            $amount = round($before - (float) $updated->total_price, 2);
+            $discount = OrderDiscount::create([
+                'order_id' => $updated->id,
+                'user_id' => $user->id,
+                'type' => $data['type'],
+                'value' => $data['value'],
+                'amount' => max(0, $amount),
+                'reason' => $data['reason'] ?? null,
+                'shopify_discount_ids' => ['tag' => $pushed['tag'], 'ids' => $pushed['ids']],
+            ]);
+            $label = 'Remise de '.$this->dh(max(0, $amount)).($data['type'] === 'percent' ? " ({$data['value']} %)" : '');
+            OrderStatusHistory::create([
+                'order_id' => $updated->id, 'kind' => 'remise', 'status_code' => 'discount_added', 'status_name' => 'Remise ajoutée',
+                'status_color' => '#db2777',
+                'data' => ['amount' => $amount, 'type' => $data['type'], 'value' => $data['value'], 'total_from' => $before, 'total_to' => (float) $updated->total_price, 'shopify' => 'pushed'],
+                'note' => $label.' · Total '.$this->dh($before).' → '.$this->dh((float) $updated->total_price).($data['reason'] ?? null ? ' · '.$data['reason'] : ''),
+                'user_id' => $user->id,
+            ]);
+
+            return response()->json(['message' => 'Remise ajoutée.', 'discount' => $discount->load('user:id,name')->toPayload()], 201);
+        }
 
         $discount = DB::transaction(function () use ($order, $data, $user) {
             $locked = Order::query()->lockForUpdate()->findOrFail($order->id);
@@ -199,6 +230,24 @@ class ConfirmationCentreController extends Controller
         }
         /** @var User $user */
         $user = $request->user();
+        $editor = app(ShopifyOrderEditService::class);
+        if ($editor->isConnectedOrder($order)) {
+            if (! ($order->shop->capabilities()['order_edit'] ?? false)) {
+                throw ValidationException::withMessages(['shopify' => ShopifyOrderEditService::UNAUTHORIZED]);
+            }
+            $before = (float) $order->total_price;
+            $updated = $editor->removePushedDiscount($order, (array) ($discount->shopify_discount_ids ?? []), $user);
+            $discount->forceFill(['removed_at' => now(), 'removed_by' => $user->id])->save();
+            OrderStatusHistory::create([
+                'order_id' => $updated->id, 'kind' => 'remise', 'status_code' => 'discount_removed', 'status_name' => 'Remise retirée',
+                'status_color' => '#db2777',
+                'data' => ['amount' => $discount->amount, 'total_from' => $before, 'total_to' => (float) $updated->total_price, 'shopify' => 'pushed'],
+                'note' => 'Remise retirée · Total '.$this->dh($before).' → '.$this->dh((float) $updated->total_price),
+                'user_id' => $user->id,
+            ]);
+
+            return response()->json(['message' => 'Remise retirée.']);
+        }
         DB::transaction(function () use ($order, $discount, $user) {
             $locked = Order::query()->lockForUpdate()->findOrFail($order->id);
             $total = (float) $locked->total_price;

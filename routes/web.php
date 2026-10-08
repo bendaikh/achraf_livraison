@@ -108,6 +108,10 @@ Route::middleware('auth')->group(function () {
         Route::post('/connect', [ShopifyIntegrationController::class, 'connect']);
         Route::post('/disconnect', [ShopifyIntegrationController::class, 'disconnect']);
         Route::post('/sync', [ShopifyIntegrationController::class, 'sync']);
+        Route::post('/reconcile', [ShopifyIntegrationController::class, 'reconcileNow']);
+        Route::post('/webhooks', [ShopifyIntegrationController::class, 'registerWebhooks']);
+        Route::get('/logs', [ShopifyIntegrationController::class, 'logs']);
+        Route::post('/logs/{log}/retry', [ShopifyIntegrationController::class, 'retryLog']);
         Route::get('/orders', [ShopifyIntegrationController::class, 'orders']);
     });
 

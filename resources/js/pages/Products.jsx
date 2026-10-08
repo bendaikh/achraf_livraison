@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Alert, Button, Card, EmptyState, Input, PageHeader, Select, Spinner } from '../components/ui';
 import { ColorBadge } from '../components/ui/Badge';
 import ProductThumb, { StockBadge } from '../components/products/ProductThumb';
+import SyncStatusBadge from '../components/shopify/SyncStatusBadge';
 
 const STATUS_COLORS = { active: '#16a34a', draft: '#d97706', archived: '#64748b' };
 
@@ -20,6 +21,7 @@ export default function Products() {
     const [error, setError] = useState(null);
     const [msg, setMsg] = useState(null);
     const [busy, setBusy] = useState('');
+    const [edit, setEdit] = useState(null);
 
     const load = useCallback(async () => {
         setError(null);
@@ -33,6 +35,31 @@ export default function Products() {
     }, [filters]);
 
     const loadStatus = useCallback(() => api.get('/products/status').then(({ data }) => setStatus(data)).catch(() => {}), []);
+
+    async function saveEdit(event) {
+        event.preventDefault();
+        setBusy('edit');
+        setError(null);
+        try {
+            if (edit.title !== edit.originalTitle) {
+                await api.put(`/products/${edit.product_id}`, { title: edit.title });
+            }
+            const fields = {};
+            if (String(edit.price) !== String(edit.originalPrice)) fields.price = edit.price;
+            if (edit.sku !== edit.originalSku) fields.sku = edit.sku;
+            if (String(edit.inventory_quantity) !== String(edit.originalStock)) fields.inventory_quantity = Number(edit.inventory_quantity);
+            if (Object.keys(fields).length) {
+                await api.put(`/products/variants/${edit.id}`, fields);
+            }
+            setMsg('Produit envoyé à Shopify.');
+            setEdit(null);
+            await load();
+        } catch (e) {
+            setError(errorMessage(e));
+        } finally {
+            setBusy('');
+        }
+    }
 
     useEffect(() => {
         load();
@@ -145,6 +172,36 @@ export default function Products() {
                 </div>
             </Card>
 
+            {edit && can('products.edit_shopify') ? (
+                <Card title="Modifier dans Shopify">
+                    <form onSubmit={saveEdit} className="grid gap-3 sm:grid-cols-2">
+                        <label className="text-sm font-semibold text-slate-700">
+                            Titre
+                            <Input className="mt-1" value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} />
+                        </label>
+                        <label className="text-sm font-semibold text-slate-700">
+                            Prix
+                            <Input className="mt-1" type="number" step="0.01" value={edit.price} onChange={(e) => setEdit({ ...edit, price: e.target.value })} />
+                        </label>
+                        <label className="text-sm font-semibold text-slate-700">
+                            SKU
+                            <Input className="mt-1" value={edit.sku || ''} onChange={(e) => setEdit({ ...edit, sku: e.target.value })} />
+                        </label>
+                        {can('products.edit_stock_shopify') ? (
+                            <label className="text-sm font-semibold text-slate-700">
+                                Stock
+                                <Input className="mt-1" type="number" value={edit.inventory_quantity ?? ''} onChange={(e) => setEdit({ ...edit, inventory_quantity: e.target.value })} />
+                            </label>
+                        ) : null}
+                        <p className="text-xs text-slate-500 sm:col-span-2">Les photos se gèrent dans Shopify. Une hausse de prix sur une ligne de commande déjà vendue n’est pas envoyée : utilisez « Remplacer produit ».</p>
+                        <div className="flex gap-2">
+                            <Button type="submit" disabled={busy === 'edit'}>{busy === 'edit' ? 'Envoi…' : 'Envoyer à Shopify'}</Button>
+                            <Button type="button" variant="secondary" onClick={() => setEdit(null)}>Annuler</Button>
+                        </div>
+                    </form>
+                </Card>
+            ) : null}
+
             {!result ? (
                 <Spinner />
             ) : rows.length === 0 ? (
@@ -191,6 +248,34 @@ export default function Products() {
                                                 <div className="flex items-center gap-3">
                                                     <ProductThumb src={v.image} size="h-10 w-10" />
                                                     <span className="max-w-[260px] truncate font-semibold text-slate-800">{v.title}</span>
+                                                    <SyncStatusBadge
+                                                        status={v.shopify_sync_status}
+                                                        error={v.shopify_sync_error}
+                                                        onRetry={v.shopify_sync_status === 'failed' && can('products.edit_shopify') ? async () => {
+                                                            setError(null);
+                                                            try {
+                                                                await api.post(`/products/${v.product_id}/shopify-retry`);
+                                                                await load();
+                                                            } catch (e) {
+                                                                setError(errorMessage(e));
+                                                            }
+                                                        } : undefined}
+                                                    />
+                                                    {can('products.edit_shopify') && v.shopify_product_id ? (
+                                                        <button
+                                                            type="button"
+                                                            className="text-xs font-semibold text-blue-600"
+                                                            onClick={() => setEdit({
+                                                                ...v,
+                                                                originalTitle: v.title,
+                                                                originalPrice: v.price,
+                                                                originalSku: v.sku,
+                                                                originalStock: v.inventory_quantity,
+                                                            })}
+                                                        >
+                                                            Modifier
+                                                        </button>
+                                                    ) : null}
                                                 </div>
                                             </td>
                                             <td className="px-3 py-2.5 text-slate-600">{v.variant_title || '—'}</td>

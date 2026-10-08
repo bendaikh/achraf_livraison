@@ -8,11 +8,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /** Centre de confirmation — « Remises » granted on an order (internal, never pushed to Shopify). */
 class OrderDiscount extends Model
 {
-    protected $fillable = ['order_id', 'user_id', 'type', 'value', 'amount', 'reason', 'removed_at', 'removed_by'];
+    protected $fillable = ['order_id', 'user_id', 'type', 'value', 'amount', 'reason', 'removed_at', 'removed_by', 'shopify_discount_ids'];
 
     protected function casts(): array
     {
-        return ['value' => 'float', 'amount' => 'float', 'removed_at' => 'datetime'];
+        return ['value' => 'float', 'amount' => 'float', 'removed_at' => 'datetime', 'shopify_discount_ids' => 'array'];
     }
 
     public function user(): BelongsTo

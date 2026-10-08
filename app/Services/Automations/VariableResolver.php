@@ -70,6 +70,8 @@ class VariableResolver
                 'email' => $subject->email,
                 'total_price' => $subject->total_price,
                 'amount' => $subject->total_price,
+                'amount_due' => $subject->amountDue(),
+                'amount_paid' => (float) ($subject->amount_paid ?? 0),
                 'source' => $subject->source,
                 'carrier' => $subject->carrier,
                 'driver_id' => $subject->driver_id,

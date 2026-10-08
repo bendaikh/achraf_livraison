@@ -196,7 +196,7 @@ export default function CarrierSendDialog({ carrier, orderIds = [], savId = null
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <div className="text-[11px] font-semibold uppercase text-slate-400">COD</div>
+                                                <div className="text-[11px] font-semibold uppercase text-slate-400">À encaisser</div>
                                                 <div className="text-sm font-bold text-slate-900">{formatDH(r.price)}</div>
                                             </div>
                                         </div>

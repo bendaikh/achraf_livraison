@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\Clients\ClientService;
+use App\Services\Payments\AmountDue;
 use App\Support\Catalog;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -78,6 +79,19 @@ class Order extends Model
         'items_edited_at',
         'items_edited_by',
         'shopify_line_items',
+        'company_id',
+        'shopify_sync_status',
+        'shopify_sync_error',
+        'shopify_synced_at',
+        'shopify_customer_id',
+        'amount_paid',
+        'amount_due',
+        'total_outstanding',
+        'payment_gateway_names',
+        'tags',
+        'discount_applications',
+        'shopify_refunds',
+        'amount_due_stale',
     ];
 
     protected $attributes = [
@@ -97,6 +111,14 @@ class Order extends Model
             'total_price' => 'decimal:2',
             'shipping_price' => 'decimal:2',
             'amount_collected' => 'decimal:2',
+            'amount_paid' => 'decimal:2',
+            'amount_due' => 'decimal:2',
+            'total_outstanding' => 'decimal:2',
+            'payment_gateway_names' => 'array',
+            'discount_applications' => 'array',
+            'shopify_refunds' => 'array',
+            'amount_due_stale' => 'boolean',
+            'shopify_synced_at' => 'datetime',
             'shopify_created_at' => 'datetime',
             'shopify_updated_at' => 'datetime',
             'confirmed_at' => 'datetime',
@@ -118,6 +140,44 @@ class Order extends Model
             if ($order->isDirty('phone') || $order->isDirty('shipping_address') || $order->phone_key === null) {
                 $order->phone_key = ClientService::key($order->phone ?: ($order->shipping_address['phone'] ?? null));
             }
+            if (! $order->company_id) {
+                $shopCompany = $order->shopify_shop_id
+                    ? ShopifyShop::query()->whereKey($order->shopify_shop_id)->value('company_id')
+                    : null;
+                $order->company_id = $shopCompany ?: Company::default()->id;
+            }
+            if ($order->financial_status === 'paid' && $order->total_outstanding === null && (float) $order->amount_paid <= 0) {
+                $order->amount_paid = $order->total_price;
+                $order->total_outstanding = 0;
+            }
+            $watch = ['total_price', 'amount_paid', 'total_outstanding', 'financial_status', 'discount_total', 'line_items', 'shopify_refunds'];
+            if ($order->amount_due === null || $order->isDirty($watch)) {
+                $due = app(AmountDue::class)->calculate($order);
+                if ($order->amount_due === null || abs((float) $order->amount_due - $due) >= 0.009) {
+                    $order->amount_due = $due;
+                }
+            }
+        });
+
+        static::saved(function (Order $order) {
+            if ($order->wasRecentlyCreated || ! $order->wasChanged('amount_due')) {
+                return;
+            }
+            if (! $order->hasCarrierParcel()) {
+                return;
+            }
+            if (! $order->amount_due_stale) {
+                $order->forceFill(['amount_due_stale' => true])->saveQuietly();
+            }
+            OrderStatusHistory::create([
+                'order_id' => $order->id,
+                'kind' => 'expedition',
+                'status_code' => 'amount_due_changed',
+                'status_name' => 'Montant à encaisser',
+                'status_color' => '#d97706',
+                'note' => 'Montant à encaisser modifié après l’envoi — vérifier le colis',
+                'data' => ['amount_due' => (float) $order->amount_due],
+            ]);
         });
 
         // Manual orders get a readable number (Shopify orders keep theirs).
@@ -288,6 +348,32 @@ class Order extends Model
         return $this->hasMany(OrderStatusHistory::class)->orderByDesc('created_at')->orderByDesc('id');
     }
 
+    public function fulfillments(): HasMany
+    {
+        return $this->hasMany(OrderFulfillment::class)->orderByDesc('id');
+    }
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    public function hasCarrierParcel(): bool
+    {
+        return $this->speedafShipments()->exists()
+            || $this->ozonShipments()->exists()
+            || $this->siftShipments()->exists();
+    }
+
+    public function amountDue(): float
+    {
+        if ($this->amount_due !== null && $this->amount_due !== '') {
+            return round((float) $this->amount_due, 2);
+        }
+
+        return app(AmountDue::class)->calculate($this);
+    }
+
     /* ----------------------------------------------------------------- display helpers */
 
     public function reference(): string
@@ -326,12 +412,31 @@ class Order extends Model
 
     public function paymentMethod(): string
     {
-        return $this->financial_status === 'paid' ? 'paye' : 'cod';
+        $due = $this->amountDue();
+        $total = round((float) $this->total_price, 2);
+        if ($due <= 0.009) {
+            return 'paye';
+        }
+        if ((float) $this->amount_paid > 0.009 && $due + 0.009 < $total) {
+            return 'partial';
+        }
+
+        return 'cod';
+    }
+
+    /** Brahim's labels: Payée en ligne, Partiellement payée, Paiement à la livraison. */
+    public function paymentLabel(): string
+    {
+        return match ($this->paymentMethod()) {
+            'paye' => 'Payée en ligne',
+            'partial' => 'Partiellement payée',
+            default => 'Paiement à la livraison',
+        };
     }
 
     public function isCod(): bool
     {
-        return $this->paymentMethod() === 'cod';
+        return $this->amountDue() > 0.009;
     }
 
     public function sourceLabel(): ?string

@@ -100,6 +100,18 @@ export default function Orders() {
         }
     }, [params]);
 
+    async function retryShopify(order) {
+        setError(null);
+        try {
+            await api.post(`/orders/${order.id}/shopify-retry`);
+            await load();
+        } catch (e) {
+            setError(errorMessage(e));
+        }
+    }
+
+    const cellMeta = { ...meta, retryShopify: can('orders.edit_items') ? retryShopify : undefined };
+
     useEffect(() => {
         load();
     }, [load]);
@@ -416,7 +428,7 @@ export default function Orders() {
                                         {mobileColumns.map((c) => (
                                             <div key={c.key} className="min-w-0">
                                                 <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{c.label}</dt>
-                                                <dd className="truncate text-xs text-slate-700">{renderCell(c.key, o, meta)}</dd>
+                                                <dd className="truncate text-xs text-slate-700">{renderCell(c.key, o, cellMeta)}</dd>
                                             </div>
                                         ))}
                                     </dl>
@@ -466,7 +478,7 @@ export default function Orders() {
                                                     className={`whitespace-nowrap px-1.5 py-1.5 text-xs text-slate-500 ${c.key === 'amount' ? 'text-right' : ''}`}
                                                     onClick={c.key === 'ship' ? (e) => e.stopPropagation() : undefined}
                                                 >
-                                                    {c.key === 'ship' ? <QuickShip order={o} onChanged={load} /> : renderCell(c.key, o, meta)}
+                                                    {c.key === 'ship' ? <QuickShip order={o} onChanged={load} /> : renderCell(c.key, o, cellMeta)}
                                                 </td>
                                             ))}
                                         </tr>

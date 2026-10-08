@@ -19,9 +19,27 @@ class OrderAutomationObserver
 
     public function updated(Order $order): void
     {
+        try {
+            $this->apply($order);
+        } finally {
+            \App\Services\Shopify\SyncContext::clearSuppressed($order->id);
+        }
+    }
+
+    protected function apply(Order $order): void
+    {
         $this->safe(function (AutomationDispatcher $d) use ($order) {
             $changes = $order->getChanges();
             unset($changes['updated_at']);
+            $suppress = \App\Services\Shopify\SyncContext::suppressedFor($order->id);
+            if ($suppress === true) {
+                return;
+            }
+            if (is_array($suppress)) {
+                foreach ($suppress as $field) {
+                    unset($changes[$field]);
+                }
+            }
             if ($changes === []) {
                 return;
             }

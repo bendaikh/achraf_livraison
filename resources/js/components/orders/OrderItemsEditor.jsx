@@ -44,6 +44,8 @@ export default function OrderItemsEditor({ order, onChanged, compact = false }) 
 
     const lines = order?.line_items || [];
     const base = `/orders/${order.id}/items`;
+    const legacyShopify = Boolean(order?.shopify_order_id && order?.items_edited_at);
+    const canEdit = editable && !legacyShopify;
 
     function remove(line) {
         const last = lines.length === 1;
@@ -60,6 +62,11 @@ export default function OrderItemsEditor({ order, onChanged, compact = false }) 
                 <p className="rounded-xl bg-violet-50 px-3 py-1.5 text-[11px] font-semibold text-violet-700">
                     Produits modifiés dans Lav'Fast Flow — modification interne, non envoyée à Shopify.
                 </p>
+            ) : null}
+            {legacyShopify && editable ? (
+                <Button size="sm" variant="secondary" disabled={busyKey === 'take'} onClick={() => run('take', () => api.post(`/orders/${order.id}/shopify-take-remote`)).catch(() => {})}>
+                    Reprendre la version Shopify
+                </Button>
             ) : null}
             <Alert>{error}</Alert>
             {warning ? (
@@ -90,7 +97,7 @@ export default function OrderItemsEditor({ order, onChanged, compact = false }) 
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    {editable ? (
+                                    {canEdit ? (
                                         <QtyStepper
                                             value={Number(line.quantity || 1)}
                                             disabled={busy}
@@ -116,7 +123,7 @@ export default function OrderItemsEditor({ order, onChanged, compact = false }) 
                                                 <div className="text-sm font-bold text-slate-800">{formatDH(total)}</div>
                                                 <div className="text-[11px] text-slate-400">
                                                     {formatDH(line.price)} / u
-                                                    {can('orders.edit_prices') ? (
+                                                    {canEdit && can('orders.edit_prices') ? (
                                                         <button type="button" className="ml-1 text-blue-600" aria-label="Modifier le prix" onClick={() => setPriceEdit({ key: line.key, value: line.price })}>
                                                             <Pencil className="inline h-3 w-3" />
                                                         </button>
@@ -126,7 +133,7 @@ export default function OrderItemsEditor({ order, onChanged, compact = false }) 
                                         )}
                                     </div>
                                 </div>
-                                {editable ? (
+                                {canEdit ? (
                                     <div className="flex w-full justify-end gap-1 sm:w-auto">
                                         <Button size="sm" variant="ghost" disabled={busy} onClick={() => setPicker({ mode: 'replace', line })} title="Remplacer le produit">
                                             <Replace className="h-3.5 w-3.5" /> <span className={compact ? 'sr-only' : ''}>Remplacer</span>
@@ -141,7 +148,7 @@ export default function OrderItemsEditor({ order, onChanged, compact = false }) 
                     })}
                 </ul>
             )}
-            {editable ? (
+            {canEdit ? (
                 <Button size="sm" variant="secondary" onClick={() => setPicker({ mode: 'add' })}>
                     <Plus className="h-3.5 w-3.5" /> Ajouter un produit
                 </Button>

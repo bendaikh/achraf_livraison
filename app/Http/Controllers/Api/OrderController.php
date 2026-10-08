@@ -15,6 +15,7 @@ use App\Services\Carriers\CarrierRegistry;
 use App\Services\Catalog\CatalogLookup;
 use App\Services\CentreService;
 use App\Services\OrderWorkflow;
+use App\Services\Shopify\ShopifyOrderEditService;
 use App\Support\Catalog;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -282,12 +283,63 @@ class OrderController extends Controller
         if ($hasDriver && (int) $driverId !== (int) $order->driver_id && ! $request->user()?->can('orders.assign_driver')) {
             abort(403, 'Vous n’avez pas le droit d’affecter des commandes à un livreur.');
         }
+
+        $editor = app(ShopifyOrderEditService::class);
+        if ($editor->isConnectedOrder($order)) {
+            $shopify = $this->shopifyCustomerChanges($order, $data);
+            if ($shopify !== []) {
+                if (! $request->user()?->can('orders.edit_shopify_customer')) {
+                    abort(403, 'Vous n’avez pas le droit de modifier le client Shopify.');
+                }
+                if (! ($order->shop->capabilities()['orders_write'] ?? false)) {
+                    throw ValidationException::withMessages(['shopify' => ShopifyOrderEditService::UNAUTHORIZED]);
+                }
+                $order = $editor->updateCustomer($order, $shopify, $request->user());
+                foreach (['customer_phone', 'email', 'note', 'city', 'address'] as $key) {
+                    unset($data[$key]);
+                }
+            }
+        }
+
         $order->fill(Order::attributesFromForm($data, $order))->save();
         if ($hasDriver && (int) $driverId !== (int) $order->driver_id) {
             $this->workflow->assignDriver($order, $driverId, $request->user());
         }
 
         return new OrderResource($order->fresh()->load($this->detailRelations()));
+    }
+
+    /**
+     * Phone, email, note and shipping address that differ from the stored order.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function shopifyCustomerChanges(Order $order, array $data): array
+    {
+        $fields = [];
+        if (array_key_exists('customer_phone', $data) && (string) $data['customer_phone'] !== (string) $order->phone) {
+            $fields['phone'] = $data['customer_phone'];
+        }
+        if (array_key_exists('email', $data) && (string) ($data['email'] ?? '') !== (string) ($order->email ?? '')) {
+            $fields['email'] = $data['email'];
+        }
+        if (array_key_exists('note', $data) && (string) ($data['note'] ?? '') !== (string) ($order->note ?? '')) {
+            $fields['note'] = $data['note'];
+        }
+        $city = $order->shipping_address['city'] ?? null;
+        $address = $order->shipping_address['address1'] ?? null;
+        $cityChanged = array_key_exists('city', $data) && (string) ($data['city'] ?? '') !== (string) ($city ?? '');
+        $addressChanged = array_key_exists('address', $data) && (string) ($data['address'] ?? '') !== (string) ($address ?? '');
+        if ($cityChanged || $addressChanged) {
+            $fields['shipping_address'] = [
+                'address1' => array_key_exists('address', $data) ? $data['address'] : $address,
+                'city' => array_key_exists('city', $data) ? $data['city'] : $city,
+                'phone' => $fields['phone'] ?? $order->phone,
+            ];
+        }
+
+        return $fields;
     }
 
     public function changeConfirmation(Request $request, Order $order)
@@ -329,7 +381,7 @@ class OrderController extends Controller
 
     protected function detailRelations(): array
     {
-        return ['deliveryStatus', 'driver', 'assignedUser', 'assignedByUser:id,name', 'shop:id,shop_domain,shop_name', 'missions.driver', 'histories.user', 'speedafShipments', 'ozonShipments.deliveryNote', 'siftShipments'];
+        return ['deliveryStatus', 'driver', 'assignedUser', 'assignedByUser:id,name', 'shop:id,shop_domain,shop_name', 'missions.driver', 'histories.user', 'speedafShipments', 'ozonShipments.deliveryNote', 'siftShipments', 'fulfillments'];
     }
 
     protected function validated(Request $request, bool $partial = false): array

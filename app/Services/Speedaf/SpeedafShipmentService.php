@@ -164,7 +164,7 @@ class SpeedafShipmentService
         $items = $this->items($order, $currency);
         $qty = array_sum(array_column($items, 'goodsQTY')) ?: 1;
         $weight = $this->weight($order, $items);
-        $cod = $order->isCod() ? round((float) $order->total_price, 2) : 0.0;
+        $cod = round($order->amountDue(), 2);
 
         $customOrderNo = self::customOrderNo($order, $attempt);
 
@@ -508,7 +508,7 @@ class SpeedafShipmentService
             $data['reason'] = Str::limit($message, 250, '');
         }
         if ($status->category === 'succes') {
-            $cod = (float) ($shipment->request_payload['codFee'] ?? ($order->isCod() ? $order->total_price : 0));
+            $cod = (float) ($shipment->request_payload['codFee'] ?? $order->amountDue());
             $data['collected_amount'] = $cod;
         }
 

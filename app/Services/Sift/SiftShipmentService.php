@@ -123,8 +123,8 @@ class SiftShipmentService
             'phone' => SpeedafShipmentService::normalizePhone($order->phone ?: ($address['phone'] ?? null)),
             'city' => trim((string) $order->shippingCity()),
             'address' => trim((string) $order->shippingAddressLine()),
-            'price' => $order->isCod() ? round((float) $order->total_price, 2) : 0.0,
-            'cod' => $order->isCod(),
+            'price' => round($order->amountDue(), 2),
+            'cod' => $order->amountDue() > 0,
             'open' => array_key_exists('open', $options) ? (bool) $options['open'] : (bool) $this->settings->default_allow_open,
             'items' => $items,
             'quantity' => array_sum(array_column($items, 'quantity')),
@@ -461,7 +461,7 @@ class SiftShipmentService
             $data['reason'] = Str::limit($comment ?: $label, 250, '');
         }
         if ($status->category === 'succes') {
-            $data['collected_amount'] = (float) ($shipment->cod_amount ?? ($order->isCod() ? $order->total_price : 0));
+            $data['collected_amount'] = (float) ($shipment->cod_amount ?? $order->amountDue());
         }
         $this->workflow->applyCarrierStatus($order, $status, $data, "Sift ({$source}) : {$label}".($comment ? ' — '.Str::limit($comment, 150) : ''));
 

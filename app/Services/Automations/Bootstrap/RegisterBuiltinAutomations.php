@@ -10,7 +10,10 @@ use App\Services\Automations\Actions\CarrierCreateParcelAction;
 use App\Services\Automations\Actions\CarrierRefreshTrackingAction;
 use App\Services\Automations\Actions\ChangeStatusAction;
 use App\Services\Automations\Actions\NotifyAction;
+use App\Services\Automations\Actions\ShopifyAddOrderNoteAction;
+use App\Services\Automations\Actions\ShopifyCreateFulfillmentAction;
 use App\Services\Automations\Actions\ShopifySyncOrderAction;
+use App\Services\Automations\Actions\ShopifyUpdateTrackingAction;
 use App\Services\Automations\Actions\WebhookExternalAction;
 use App\Services\Automations\Actions\WhatsAppSendMessageAction;
 use App\Services\Automations\AutomationRegistry;
@@ -62,6 +65,12 @@ class RegisterBuiltinAutomations
             ['manual', 'Déclenchement manuel', 'manuel'],
             ['schedule.cron', 'Planifié (cron)', 'planification'],
             ['webhook.external', 'Webhook / API externe', 'api'],
+            ['shopify.order_updated', 'Commande Shopify mise à jour', 'shopify'],
+            ['shopify.order_edited', 'Commande Shopify modifiée', 'shopify'],
+            ['shopify.fulfillment_created', 'Fulfillment Shopify créé', 'shopify'],
+            ['shopify.tracking_received', 'Suivi Shopify reçu', 'shopify'],
+            ['shopify.product_updated', 'Produit Shopify mis à jour', 'shopify'],
+            ['shopify.sync_failed', 'Échec de synchro Shopify', 'shopify'],
         ];
 
         foreach ($items as [$key, $label, $category]) {
@@ -158,6 +167,9 @@ class RegisterBuiltinAutomations
         $registry->registerAction(new WebhookExternalAction);
         $registry->registerAction(new WhatsAppSendMessageAction);
         $registry->registerAction(new ShopifySyncOrderAction);
+        $registry->registerAction(new ShopifyCreateFulfillmentAction);
+        $registry->registerAction(new ShopifyUpdateTrackingAction);
+        $registry->registerAction(new ShopifyAddOrderNoteAction);
         $registry->registerAction(new AddClientTagAction);
         $registry->registerAction(new RemoveClientTagAction);
 

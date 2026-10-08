@@ -10,6 +10,7 @@ class ShopifyAppSetting extends Model
         'client_id',
         'client_secret',
         'scopes',
+        'requested_scopes',
         'api_version',
     ];
 
@@ -25,8 +26,9 @@ class ShopifyAppSetting extends Model
         return static::query()->firstOrCreate(
             ['id' => 1],
             [
-                'scopes' => config('services.shopify.scopes', 'read_orders,read_customers,read_products,read_inventory'),
-                'api_version' => config('services.shopify.api_version', '2025-01'),
+                'scopes' => mb_substr((string) config('services.shopify.scopes', \App\Services\Shopify\ShopifyOAuth::DEFAULT_SCOPES), 0, 255),
+                'requested_scopes' => (string) config('services.shopify.scopes', \App\Services\Shopify\ShopifyOAuth::DEFAULT_SCOPES),
+                'api_version' => config('services.shopify.api_version', \App\Services\Shopify\ShopifyOAuth::API_VERSION),
             ]
         );
     }

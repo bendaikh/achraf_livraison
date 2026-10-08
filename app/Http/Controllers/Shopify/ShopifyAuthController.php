@@ -65,12 +65,13 @@ class ShopifyAuthController extends Controller
                 ['shop_domain' => $shop],
                 [
                     'access_token' => $tokenPayload['access_token'],
-                    'scopes' => $tokenPayload['scope'] ?? $oauth->scopes(),
                     'is_active' => true,
                     'installed_at' => now(),
                     'uninstalled_at' => null,
                 ]
             );
+            $shopModel->rememberScopes($tokenPayload['scope'] ?? $oauth->scopes());
+            $shopModel->save();
 
             try {
                 $details = $oauth->fetchShopDetails($shopModel);

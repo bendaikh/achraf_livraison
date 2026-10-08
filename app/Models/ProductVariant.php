@@ -93,6 +93,9 @@ class ProductVariant extends Model
             'collections' => $product?->collections ?? [],
             'source' => $product?->shop?->shop_name ?? $product?->shop?->shop_domain ?? ($product?->source === 'shopify' ? 'Shopify' : 'Manuel'),
             'source_label' => $product?->shop ? 'Shopify · '.($product->shop->shop_name ?: $product->shop->shop_domain) : ($product?->source === 'shopify' ? 'Shopify' : 'Manuel'),
+            'shopify_sync_status' => $product?->shopify_sync_status,
+            'shopify_sync_error' => $product?->shopify_sync_error,
+            'images_editable' => false,
         ];
     }
 }

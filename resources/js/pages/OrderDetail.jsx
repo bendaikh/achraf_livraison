@@ -15,8 +15,10 @@ import StatusChangeForm from '../components/orders/StatusChangeForm';
 import SpeedafOrderCard from '../components/orders/SpeedafOrderCard';
 import OzonOrderCard from '../components/ozon/OzonOrderCard';
 import SiftOrderCard from '../components/sift/SiftOrderCard';
+import SyncStatusBadge from '../components/shopify/SyncStatusBadge';
+import OrderForm from '../components/orders/OrderForm';
 
-const HISTORY_KINDS = { confirmation: 'Confirmation', affectation: 'Affectation', produits: 'Produits', expedition: 'Expédition', appel: 'Appel', remise: 'Remise', agent: 'Agent', sav: 'SAV', ozon: 'Ozon Express', sift: 'Sift' };
+const HISTORY_KINDS = { confirmation: 'Confirmation', affectation: 'Affectation', produits: 'Produits', expedition: 'Expédition', appel: 'Appel', remise: 'Remise', agent: 'Agent', sav: 'SAV', ozon: 'Ozon Express', sift: 'Sift', shopify: 'Shopify' };
 
 function Info({ label, children }) {
     return (
@@ -34,6 +36,7 @@ export default function OrderDetail() {
     const [error, setError] = useState(null);
     const [busy, setBusy] = useState(false);
     const [assigning, setAssigning] = useState(false);
+    const [editing, setEditing] = useState(false);
     const { can } = useAuth();
 
     const load = useCallback(async () => {
@@ -73,8 +76,44 @@ export default function OrderDetail() {
                     <ArrowLeft className="h-4 w-4" /> Commandes
                 </Link>
                 <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">{order.reference}</h1>
+                <SyncStatusBadge
+                    status={order.shopify_sync_status}
+                    error={order.shopify_sync_error}
+                    journalHref="#historique"
+                    onRetry={order.shopify_sync_status === 'failed' && can('orders.edit_items') ? async () => {
+                        setError(null);
+                        try {
+                            await api.post(`/orders/${order.id}/shopify-retry`);
+                            await load();
+                        } catch (e) {
+                            setError(errorMessage(e));
+                        }
+                    } : undefined}
+                />
                 <StatusBadge status={order.delivery_status} />
                 {confirmation ? <ColorBadge color={confirmation.color} label={confirmation.label} /> : null}
+                {order.shopify_sync_status === 'conflict' && order.items_edited_at && can('orders.edit_items') ? (
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={busy}
+                        onClick={async () => {
+                            setBusy(true);
+                            setError(null);
+                            try {
+                                await api.post(`/orders/${order.id}/shopify-take-remote`);
+                                await load();
+                            } catch (e) {
+                                setError(errorMessage(e));
+                            } finally {
+                                setBusy(false);
+                            }
+                        }}
+                    >
+                        Reprendre la version Shopify
+                    </Button>
+                ) : null}
+                <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>Modifier</Button>
             </div>
             <Alert>{error}</Alert>
             <BlockedClientAlert block={order.client_blocked} />
@@ -96,7 +135,8 @@ export default function OrderDetail() {
                             <Info label="Ville">{order.city}</Info>
                             <Info label="Adresse">{order.address}</Info>
                             <Info label="Montant">{formatDH(order.amount)}</Info>
-                            <Info label="Paiement">{meta.paymentMap[order.payment_method]?.label || order.payment_method}</Info>
+                            <Info label="À encaisser">À encaisser : {formatDH(order.amount_due ?? 0)}</Info>
+                            <Info label="Paiement">{order.payment_label || meta.paymentMap[order.payment_method]?.label || order.payment_method}</Info>
                             <Info label="Source">{order.source}</Info>
                             <Info label="Utilisateur assigné">{order.assigned_user?.name}</Info>
                             <Info label="Date">{formatDateTime(order.created_at)}</Info>
@@ -107,6 +147,49 @@ export default function OrderDetail() {
                         </div>
                         {order.note ? <p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">{order.note}</p> : null}
                     </Card>
+
+                    {order.shopify_order_id ? (
+                        <Card title="Shopify" subtitle={order.shopify?.shop_domain || 'Boutique connectée'}>
+                            <div className="space-y-3 text-sm">
+                                {(order.fulfillments || []).length ? (
+                                    <ul className="divide-y divide-slate-100 rounded-xl border border-slate-100">
+                                        {order.fulfillments.map((f) => (
+                                            <li key={f.id} className="px-3 py-2">
+                                                <span className="font-semibold text-slate-800">{f.tracking_number || 'Sans numéro'}</span>
+                                                <span className="text-slate-500"> · {f.tracking_company || f.status || '—'}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <p className="text-slate-500">Aucun fulfillment Shopify.</p>
+                                )}
+                                {can('orders.ship') ? (
+                                    <Button
+                                        disabled={busy}
+                                        onClick={async () => {
+                                            const number = window.prompt('Numéro de suivi à envoyer à Shopify');
+                                            if (!number) return;
+                                            setBusy(true);
+                                            setError(null);
+                                            try {
+                                                await api.post(`/orders/${order.id}/shopify-tracking`, {
+                                                    tracking_number: number,
+                                                    notify_customer: false,
+                                                });
+                                                await load();
+                                            } catch (e) {
+                                                setError(errorMessage(e));
+                                            } finally {
+                                                setBusy(false);
+                                            }
+                                        }}
+                                    >
+                                        Envoyer le suivi à Shopify
+                                    </Button>
+                                ) : null}
+                            </div>
+                        </Card>
+                    ) : null}
 
                     <Card title="Produits" subtitle={`${order.quantity} article(s)`}>
                         <OrderItemsEditor order={order} onChanged={setOrder} />
@@ -140,6 +223,7 @@ export default function OrderDetail() {
                     </Card>
 
                     {order.histories ? (
+                    <div id="historique">
                         <Card title="Historique des statuts" bodyClassName="p-0">
                             {order.histories.length ? (
                                 <ol className="divide-y divide-slate-100">
@@ -177,6 +261,7 @@ export default function OrderDetail() {
                                 <EmptyState>Aucun historique</EmptyState>
                             )}
                         </Card>
+                    </div>
                     ) : null}
                 </div>
 
@@ -261,6 +346,15 @@ export default function OrderDetail() {
                     </Card>
                 </div>
             </div>
+            <OrderForm
+                open={editing}
+                order={order}
+                onClose={() => setEditing(false)}
+                onSaved={(saved) => {
+                    setEditing(false);
+                    setOrder(saved);
+                }}
+            />
         </div>
     );
 }

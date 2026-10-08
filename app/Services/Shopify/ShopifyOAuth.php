@@ -10,8 +10,39 @@ use RuntimeException;
 
 class ShopifyOAuth
 {
-    /** Orders import + product catalog (T4: read_products, read_inventory). */
-    public const DEFAULT_SCOPES = 'read_orders,read_customers,read_products,read_inventory';
+    /** Latest stable Admin API (2025-01 is out of support). */
+    public const API_VERSION = '2026-10';
+
+    /**
+     * Two-way sync. write_* implies the matching read_*.
+     * Verified against Shopify access scopes (2026-10): write_order_edits,
+     * read/write_merchant_managed_fulfillment_orders, read/write_fulfillments all exist.
+     */
+    public const DEFAULT_SCOPES = 'read_orders,write_orders,write_order_edits,read_customers,write_customers,read_products,write_products,read_inventory,write_inventory,read_locations,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders,read_fulfillments,write_fulfillments';
+
+    /** Topics registered idempotently (REST webhooks.json, supported on 2026-10). */
+    public const WEBHOOK_TOPICS = [
+        'orders/create',
+        'orders/updated',
+        'orders/cancelled',
+        'orders/edited',
+        'orders/paid',
+        'orders/fulfilled',
+        'orders/partially_fulfilled',
+        'products/create',
+        'products/update',
+        'products/delete',
+        'inventory_levels/update',
+        'fulfillments/create',
+        'fulfillments/update',
+        'refunds/create',
+        'customers/create',
+        'customers/update',
+        'app/uninstalled',
+        'customers/data_request',
+        'customers/redact',
+        'shop/redact',
+    ];
 
     public function settings(): ShopifyAppSetting
     {
@@ -34,11 +65,17 @@ class ShopifyOAuth
 
     public function scopes(): string
     {
-        $fromDb = $this->settings()->scopes;
+        $settings = $this->settings();
+        $fromDb = $settings->requested_scopes ?: $settings->scopes;
+        $legacy = [
+            'read_orders,read_customers',
+            'read_orders,read_customers,read_products,read_inventory',
+        ];
+        if (! filled($fromDb) || in_array($fromDb, $legacy, true)) {
+            return (string) config('services.shopify.scopes', self::DEFAULT_SCOPES);
+        }
 
-        return filled($fromDb)
-            ? $fromDb
-            : (string) config('services.shopify.scopes', self::DEFAULT_SCOPES);
+        return $fromDb;
     }
 
     public function apiVersion(): string
@@ -47,7 +84,7 @@ class ShopifyOAuth
 
         return filled($fromDb)
             ? $fromDb
-            : (string) config('services.shopify.api_version', '2025-01');
+            : (string) config('services.shopify.api_version', self::API_VERSION);
     }
 
     public function isConfigured(): bool
@@ -142,19 +179,7 @@ class ShopifyOAuth
         $client = new ShopifyClient($shop->shop_domain, $shop->access_token, $this->apiVersion());
         $address = $this->webhookUrl();
 
-        $topics = [
-            'orders/create',
-            'orders/updated',
-            'orders/cancelled',
-            'products/create',
-            'products/update',
-            'products/delete',
-            'inventory_levels/update',
-            'app/uninstalled',
-            'customers/data_request',
-            'customers/redact',
-            'shop/redact',
-        ];
+        $topics = self::WEBHOOK_TOPICS;
 
         $existing = $client->get('webhooks.json');
         $existingTopics = collect($existing['webhooks'] ?? [])

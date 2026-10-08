@@ -160,7 +160,7 @@ function QuickShipPopup({ anchor, order, onClose, onChanged }) {
                         ) : null}
                         <div className="min-w-0">
                             <div className="truncate text-sm font-bold text-slate-900">
-                                {order.reference} · {formatDH(order.amount)}
+                                {order.reference} · À encaisser : {formatDH(order.amount_due ?? order.amount)}
                             </div>
                             <div className="truncate text-[11px] text-slate-500">
                                 {order.customer_name} · {order.city || '—'}

@@ -1,0 +1,17 @@
+{
+  "order_edit": {
+    "id": 9001001,
+    "order_id": 9001,
+    "committed_at": "2026-10-08T12:30:00Z",
+    "notify_customer": false,
+    "staff_note": "Modifié depuis Lav’Fast Flow",
+    "line_items": {
+      "additions": [
+        {"id": 2, "delta": 1}
+      ],
+      "removals": [
+        {"id": 1, "delta": 1}
+      ]
+    }
+  }
+}

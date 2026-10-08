@@ -45,6 +45,26 @@ Schedule::call(fn () => app(CatalogSyncService::class)->syncAll())
     ->withoutOverlapping(55);
 
 /*
+| Shopify order reconciliation (safety net). Incremental every 15 minutes,
+| deeper 7-day pass once a day. Schedule::call — proc_open is disabled on Hostinger.
+*/
+Schedule::call(function () {
+    \App\Models\ShopifyShop::query()->where('is_active', true)->whereNull('uninstalled_at')->pluck('id')
+        ->each(fn ($id) => \App\Jobs\ShopifyReconcileJob::dispatch((int) $id, false)->onQueue('shopify'));
+})
+    ->name('shopify-reconcile')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping(14);
+
+Schedule::call(function () {
+    \App\Models\ShopifyShop::query()->where('is_active', true)->whereNull('uninstalled_at')->pluck('id')
+        ->each(fn ($id) => \App\Jobs\ShopifyReconcileJob::dispatch((int) $id, true)->onQueue('shopify'));
+})
+    ->name('shopify-reconcile-deep')
+    ->dailyAt('03:40')
+    ->withoutOverlapping(55);
+
+/*
 | Agent commissions (T6): fixed monthly amounts of the previous month, on the 1st.
 */
 Schedule::call(fn () => app(CommissionService::class)->generateMonthly())
@@ -69,7 +89,7 @@ Schedule::call(fn () => Artisan::call('sift:sync'))
 */
 Schedule::call(function () {
     Artisan::call('queue:work', [
-        '--queue' => 'whatsapp-campaigns,automations,default',
+        '--queue' => 'shopify,whatsapp-campaigns,automations,default',
         '--stop-when-empty' => true,
         '--max-time' => 55,
         '--sleep' => 1,

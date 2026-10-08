@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\SavController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\SettingsController;
+use App\Http\Controllers\Api\ShopifyOrderController;
 use App\Http\Controllers\Api\SiftIntegrationController;
 use App\Http\Controllers\Api\SiftOrderController;
 use App\Http\Controllers\Api\SpeedafIntegrationController;
@@ -119,11 +120,19 @@ Route::middleware(['web', 'auth', 'admin.access'])->group(function () {
         Route::post('orders/{order}/items/{key}/replace', [OrderItemController::class, 'replace']);
     });
 
+    Route::post('orders/{order}/shopify-customer', [ShopifyOrderController::class, 'updateCustomer']);
+    Route::post('orders/{order}/shopify-tracking', [ShopifyOrderController::class, 'sendTracking'])->middleware('can:orders.ship');
+    Route::post('orders/{order}/shopify-retry', [ShopifyOrderController::class, 'retry'])->middleware('can:orders.edit_items');
+    Route::post('orders/{order}/shopify-take-remote', [ShopifyOrderController::class, 'takeRemote'])->middleware('can:orders.edit_items');
+
     // Produits (catalogue Shopify synchronisé)
     Route::get('products', [ProductController::class, 'index'])->middleware('can:products.view');
     Route::get('products/status', [ProductController::class, 'status'])->middleware('can:products.view');
     Route::post('products/sync', [ProductController::class, 'sync'])->middleware('can:products.sync');
     Route::post('products/webhooks', [ProductController::class, 'registerWebhooks'])->middleware('can:products.sync');
+    Route::put('products/variants/{variant}', [ProductController::class, 'updateVariant'])->middleware('can:products.edit_shopify');
+    Route::put('products/{product}', [ProductController::class, 'update'])->middleware('can:products.edit_shopify');
+    Route::post('products/{product}/shopify-retry', [ProductController::class, 'retry'])->middleware('can:products.edit_shopify');
 
     Route::get('drivers', [DriverController::class, 'index']);
     Route::get('drivers/active', [DriverController::class, 'active']);

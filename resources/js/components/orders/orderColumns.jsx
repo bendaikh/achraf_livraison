@@ -1,6 +1,7 @@
 import { Ban, Package } from 'lucide-react';
 import { ColorBadge, StatusBadge } from '../ui/Badge';
 import { formatDH, formatDateTime } from '../../lib/format';
+import SyncStatusBadge from '../shopify/SyncStatusBadge';
 
 /**
  * Columns available in the Commandes list (UI layout, not business data).
@@ -19,7 +20,7 @@ export const ORDER_COLUMNS = [
     { key: 'status', label: 'Statut' },
     { key: 'confirmation', label: 'Confirmation' },
     { key: 'driver', label: 'Transporteur', title: 'Livreur / société de livraison' },
-    { key: 'amount', label: 'À payer', title: 'Montant à encaisser' },
+    { key: 'amount', label: 'À encaisser', title: 'Montant à encaisser' },
     { key: 'speedaf', label: 'Suivi colis' },
     { key: 'assigned_user', label: 'Utilisateur assigné' },
     { key: 'source', label: 'Source' },
@@ -50,7 +51,16 @@ export function renderCell(key, order, meta) {
         case 'photo':
             return <ProductPhoto order={order} />;
         case 'reference':
-            return <span className="font-semibold text-slate-800">{order.reference}</span>;
+            return (
+                <span className="inline-flex items-center gap-1">
+                    <span className="font-semibold text-slate-800">{order.reference}</span>
+                    <SyncStatusBadge
+                        status={order.shopify_sync_status}
+                        error={order.shopify_sync_error}
+                        onRetry={order.shopify_sync_status === 'failed' && meta?.retryShopify ? () => meta.retryShopify(order) : undefined}
+                    />
+                </span>
+            );
         case 'product':
             return (
                 <span className="flex max-w-[130px] items-baseline gap-1" title={order.product_name || ''}>
@@ -84,19 +94,21 @@ export function renderCell(key, order, meta) {
         case 'address':
             return <span className="block max-w-[220px] truncate">{order.address || '—'}</span>;
         case 'amount':
-            return order.payment_method === 'paye' ? (
-                <span className="font-semibold text-emerald-600" title={`Déjà payé (${formatDH(order.amount)})`}>
-                    0 DH
+            return (
+                <span className={`font-semibold ${Number(order.amount_due ?? 0) <= 0 ? 'text-emerald-600' : 'text-slate-800'}`}>
+                    À encaisser : {formatDH(order.amount_due ?? 0)}
                 </span>
-            ) : (
-                <span className="font-semibold text-slate-800">{formatDH(order.amount)}</span>
             );
-        case 'payment':
-            return order.payment_method === 'paye' ? (
-                <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700">Payé</span>
-            ) : (
-                <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">COD</span>
-            );
+        case 'payment': {
+            const method = order.payment_method;
+            if (method === 'paye') {
+                return <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700">Payée en ligne</span>;
+            }
+            if (method === 'partial') {
+                return <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700">Partiellement payée</span>;
+            }
+            return <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">Paiement à la livraison</span>;
+        }
         case 'status':
             return <StatusBadge status={order.delivery_status} />;
         case 'confirmation': {

@@ -6,6 +6,7 @@ import useCarriers from '../../hooks/useCarriers';
 import { useAuth } from '../../contexts/AuthContext';
 import { Alert, Button, Card, Field, Input, Select } from '../ui';
 import CarrierSendDialog from '../ozon/CarrierSendDialog';
+import AmountDueStaleNotice from '../orders/AmountDueStaleNotice';
 
 const STATE_LABEL = { created: 'Colis actif', delivered: 'Livré', returned: 'Retourné', cancelled: 'Annulé' };
 
@@ -226,6 +227,7 @@ export default function SiftOrderCard({ order, onChanged }) {
     return (
         <Card title="Sift.ma" actions={<Truck className="h-4 w-4 text-violet-600" />}>
             <div className="space-y-3">
+                <AmountDueStaleNotice order={order} />
                 <Alert>{error}</Alert>
                 <Alert type="success">{msg}</Alert>
                 {current ? (

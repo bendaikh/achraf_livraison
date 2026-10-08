@@ -18,6 +18,7 @@ class Product extends Model
     protected $fillable = [
         'company_id', 'shopify_shop_id', 'source', 'shopify_product_id', 'title', 'handle', 'vendor', 'product_type',
         'status', 'image_url', 'images', 'collections', 'tags', 'shopify_updated_at', 'synced_at', 'deleted_in_shopify_at',
+        'description_html', 'description_text', 'options', 'shopify_sync_status', 'shopify_sync_error', 'shopify_synced_at',
     ];
 
     protected function casts(): array
@@ -25,6 +26,8 @@ class Product extends Model
         return [
             'images' => 'array',
             'collections' => 'array',
+            'options' => 'array',
+            'shopify_synced_at' => 'datetime',
             'shopify_updated_at' => 'datetime',
             'synced_at' => 'datetime',
             'deleted_in_shopify_at' => 'datetime',

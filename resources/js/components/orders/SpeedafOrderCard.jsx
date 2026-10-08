@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import api, { errorMessage } from "../../lib/api";
 import { formatDateTime } from "../../lib/format";
 import { Alert, Button, Card } from "../ui";
+import AmountDueStaleNotice from "./AmountDueStaleNotice";
 
 /** Fiche commande → Speedaf: send / cancel / refresh tracking / print the waybill. */
 export default function SpeedafOrderCard({ order, onChanged }) {
@@ -53,6 +54,7 @@ export default function SpeedafOrderCard({ order, onChanged }) {
             actions={<Truck className="h-4 w-4 text-slate-400" />}
         >
             <div className="space-y-3">
+                <AmountDueStaleNotice order={order} />
                 <Alert>{error}</Alert>
                 <Alert type="success">{msg}</Alert>
                 {shipment ? (

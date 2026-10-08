@@ -7,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Alert, Button, Card } from '../ui';
 import CarrierSendDialog from './CarrierSendDialog';
 import DocumentLinks from './DocumentLinks';
+import AmountDueStaleNotice from '../orders/AmountDueStaleNotice';
 
 const STATE_LABEL = { created: 'Colis actif', in_transit: 'En cours', delivered: 'Livré', returned: 'Retourné', cancelled: 'Annulé' };
 
@@ -139,6 +140,7 @@ export default function OzonOrderCard({ order, onChanged }) {
     return (
         <Card title="Ozon Express" actions={<Truck className="h-4 w-4 text-teal-600" />}>
             <div className="space-y-3">
+                <AmountDueStaleNotice order={order} />
                 <Alert>{error}</Alert>
                 <Alert type="success">{msg}</Alert>
                 {current ? (

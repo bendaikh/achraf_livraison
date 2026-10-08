@@ -141,7 +141,7 @@ export default function DriverMissions() {
 
     const openDeliver = (order) => {
         setDeliverOrder(order);
-        setAmountCollected(String(order.total_price ?? ''));
+        setAmountCollected(String(order.amount_due ?? order.total_price ?? ''));
         setDeliverComment('');
         setActionError('');
     };
@@ -351,7 +351,7 @@ export default function DriverMissions() {
                                     </div>
                                     <div className="text-right">
                                         <p className="text-base font-bold text-slate-900">
-                                            {formatMoney(order.total_price, order.currency)}
+                                            À encaisser : {formatMoney(order.amount_due ?? order.total_price, order.currency)}
                                         </p>
                                         <p className="mt-1 text-[11px] font-medium text-slate-400">
                                             {formatDate(order.assigned_at)}
@@ -479,8 +479,8 @@ export default function DriverMissions() {
             {deliverOrder ? (
                 <ModalShell title="Marquer comme livrée" onClose={() => setDeliverOrder(null)}>
                     <p className="text-sm text-slate-500">
-                        {orderDisplayName(deliverOrder)} · à encaisser{' '}
-                        {formatMoney(deliverOrder.total_price, deliverOrder.currency)}
+                        {orderDisplayName(deliverOrder)} · À encaisser :{' '}
+                        {formatMoney(deliverOrder.amount_due ?? deliverOrder.total_price, deliverOrder.currency)}
                     </p>
                     {actionError ? (
                         <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">

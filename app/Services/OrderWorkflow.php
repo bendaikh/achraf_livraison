@@ -361,7 +361,7 @@ class OrderWorkflow
             if (isset($data['collected_amount']) && $data['collected_amount'] !== '') {
                 $order->amount_collected = $data['collected_amount'];
             } elseif ($order->amount_collected === null) {
-                $order->amount_collected = $order->isCod() ? $order->total_price : 0;
+                $order->amount_collected = $order->amountDue();
             }
         }
         $order->save();
@@ -416,8 +416,8 @@ class OrderWorkflow
                 'items_description' => $order->productName(),
                 'quantity' => $order->itemsQuantity(),
                 'scheduled_date' => now()->toDateString(),
-                'cash_amount' => $order->isCod() ? $order->total_price : null,
-                'cash_direction' => $order->isCod() ? 'collect' : null,
+                'cash_amount' => $order->amountDue() > 0 ? $order->amountDue() : null,
+                'cash_direction' => $order->amountDue() > 0 ? 'collect' : null,
             ]);
         }
 

@@ -21,15 +21,20 @@ class CatalogSyncService
 {
     public const PAGE_SIZE = 10;
 
+    public string $outcome = 'processed';
+
     private const PRODUCTS_QUERY = <<<'GQL'
 query Catalog($first: Int!, $after: String, $query: String) {
   products(first: $first, after: $after, query: $query, sortKey: UPDATED_AT) {
     pageInfo { hasNextPage endCursor }
     nodes {
       legacyResourceId title handle status vendor productType tags updatedAt
+      description descriptionHtml
+      options { name values }
       featuredImage { url }
-      images(first: 5) { nodes { url } }
-      collections(first: 5) { nodes { title } }
+      images(first: 50) { pageInfo { hasNextPage endCursor } nodes { url } }
+      media(first: 50) { nodes { ... on MediaImage { image { url } } } }
+      collections(first: 50) { pageInfo { hasNextPage endCursor } nodes { title } }
       variants(first: 60) {
         pageInfo { hasNextPage }
         nodes {
@@ -162,7 +167,20 @@ GQL;
             return null;
         }
 
-        return $this->upsert($shop, $this->fromRest($payload, $this->existingCollections($shop, (int) $payload['id'])));
+        return SyncContext::inbound(function () use ($shop, $payload) {
+            $product = $this->upsert($shop, $this->fromRest($payload, $this->existingCollections($shop, (int) $payload['id'])));
+            if ($this->outcome === 'processed') {
+                app(\App\Services\Automations\AutomationDispatcher::class)->dispatch(
+                    'shopify.product_updated',
+                    $shop->resolveCompanyId(),
+                    $product,
+                    ['product_id' => $product->id, 'shopify_id' => (string) $payload['id']],
+                    'shopify.product_updated:'.$product->id.':'.md5((string) ($payload['updated_at'] ?? $product->updated_at)),
+                );
+            }
+
+            return $product;
+        });
     }
 
     public function handleProductDeleted(ShopifyShop $shop, array $payload): void
@@ -209,9 +227,15 @@ GQL;
             'product_type' => $node['productType'] ?? null,
             'status' => strtolower((string) ($node['status'] ?? 'active')),
             'image_url' => $node['featuredImage']['url'] ?? ($node['images']['nodes'][0]['url'] ?? null),
-            'images' => array_values(array_filter(array_map(fn ($i) => $i['url'] ?? null, $node['images']['nodes'] ?? []))),
+            'images' => $this->imageUrls($node),
             'collections' => array_values(array_filter(array_map(fn ($c) => $c['title'] ?? null, $node['collections']['nodes'] ?? []))),
             'tags' => is_array($node['tags'] ?? null) ? implode(', ', $node['tags']) : ($node['tags'] ?? null),
+            'description_html' => $node['descriptionHtml'] ?? null,
+            'description_text' => $this->plainText($node['description'] ?? $node['descriptionHtml'] ?? null),
+            'options' => array_values(array_map(fn ($o) => [
+                'name' => $o['name'] ?? '',
+                'values' => array_values($o['values'] ?? []),
+            ], $node['options'] ?? [])),
             'shopify_updated_at' => $node['updatedAt'] ?? null,
             'variants' => array_map(fn ($v) => $this->variantFromGraphql($v), $node['variants']['nodes'] ?? []),
         ];
@@ -252,6 +276,12 @@ GQL;
             'images' => $images->pluck('src')->filter()->values()->all(),
             'collections' => $collections,
             'tags' => $p['tags'] ?? null,
+            'description_html' => $p['body_html'] ?? null,
+            'description_text' => $this->plainText($p['body_html'] ?? null),
+            'options' => array_values(array_map(fn ($o) => [
+                'name' => $o['name'] ?? '',
+                'values' => array_values($o['values'] ?? []),
+            ], $p['options'] ?? [])),
             'shopify_updated_at' => $p['updated_at'] ?? null,
             'variants' => array_map(fn ($v) => [
                 'shopify_variant_id' => (int) $v['id'],
@@ -280,9 +310,53 @@ GQL;
         $companyId = $shop->resolveCompanyId();
 
         return DB::transaction(function () use ($shop, $data, $companyId) {
+            $echoPayload = $this->echoFields($data);
             $variants = $data['variants'] ?? [];
             unset($data['variants']);
-            $data['shopify_updated_at'] = ! empty($data['shopify_updated_at']) ? Carbon::parse($data['shopify_updated_at']) : null;
+            $incomingAt = $data['shopify_updated_at'] ?? null;
+            $data['shopify_updated_at'] = ! empty($incomingAt) ? Carbon::parse($incomingAt) : null;
+
+            $existing = Product::query()
+                ->where('shopify_shop_id', $shop->id)
+                ->where('shopify_product_id', $data['shopify_product_id'])
+                ->first();
+            if ($existing && $data['shopify_updated_at'] && $existing->shopify_updated_at && $data['shopify_updated_at']->lt($existing->shopify_updated_at)) {
+                $this->outcome = 'ignored';
+                app(ShopifySyncLogger::class)->log([
+                    'company_id' => $companyId,
+                    'shopify_shop_id' => $shop->id,
+                    'direction' => 'in',
+                    'entity_type' => 'product',
+                    'entity_id' => $existing->id,
+                    'shopify_id' => (string) $data['shopify_product_id'],
+                    'action' => 'upsert',
+                    'source' => SyncContext::isInbound() ? 'webhook' : 'reconcile',
+                    'status' => 'ignored',
+                    'error' => 'Payload produit plus ancien que la version locale.',
+                ]);
+
+                return $existing;
+            }
+
+            $echo = SyncEcho::matches($shop->id, 'product', (string) $data['shopify_product_id'], $echoPayload);
+            if ($echo && $existing) {
+                app(ShopifySyncLogger::class)->log([
+                    'company_id' => $companyId,
+                    'shopify_shop_id' => $shop->id,
+                    'direction' => 'in',
+                    'entity_type' => 'product',
+                    'entity_id' => $existing->id,
+                    'shopify_id' => (string) $data['shopify_product_id'],
+                    'action' => 'upsert',
+                    'source' => SyncContext::isInbound() ? 'webhook' : 'reconcile',
+                    'status' => 'echo',
+                ]);
+            }
+            $conflict = $existing && in_array($existing->shopify_sync_status, ['pending', 'failed'], true) && ! $echo;
+            $data['shopify_sync_status'] = $conflict ? 'conflict' : 'synced';
+            $data['shopify_sync_error'] = null;
+            $data['shopify_synced_at'] = now();
+            $this->outcome = $echo ? 'echo' : 'processed';
 
             $product = Product::query()->updateOrCreate(
                 ['shopify_shop_id' => $shop->id, 'shopify_product_id' => $data['shopify_product_id']],
@@ -304,5 +378,62 @@ GQL;
 
             return $product;
         });
+    }
+
+    /**
+     * Fields compared to a Flow push echo: title, description and variant price/sku/barcode/compare-at/stock.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public function echoFields(array $data): array
+    {
+        $variants = [];
+        foreach ($data['variants'] ?? [] as $v) {
+            if (! is_array($v)) {
+                continue;
+            }
+            $variants[] = [
+                'id' => (int) ($v['shopify_variant_id'] ?? 0),
+                'price' => number_format((float) ($v['price'] ?? 0), 2, '.', ''),
+                'sku' => ($v['sku'] ?? '') !== '' ? ($v['sku'] ?? null) : null,
+                'barcode' => ($v['barcode'] ?? '') !== '' ? ($v['barcode'] ?? null) : null,
+                'compare_at_price' => isset($v['compare_at_price']) && $v['compare_at_price'] !== null && $v['compare_at_price'] !== ''
+                    ? number_format((float) $v['compare_at_price'], 2, '.', '')
+                    : null,
+                'inventory_quantity' => isset($v['inventory_quantity']) && $v['inventory_quantity'] !== '' ? (int) $v['inventory_quantity'] : null,
+            ];
+        }
+        usort($variants, fn ($a, $b) => $a['id'] <=> $b['id']);
+
+        return [
+            'title' => $data['title'] ?? null,
+            'description_html' => $data['description_html'] ?? null,
+            'variants' => $variants,
+        ];
+    }
+
+    /** @param  array<string, mixed>  $node */
+    protected function imageUrls(array $node): array
+    {
+        $urls = array_values(array_filter(array_map(fn ($i) => $i['url'] ?? null, $node['images']['nodes'] ?? [])));
+        foreach ($node['media']['nodes'] ?? [] as $media) {
+            $url = $media['image']['url'] ?? null;
+            if ($url && ! in_array($url, $urls, true)) {
+                $urls[] = $url;
+            }
+        }
+
+        return $urls;
+    }
+
+    protected function plainText(mixed $html): ?string
+    {
+        if ($html === null || $html === '') {
+            return null;
+        }
+        $text = trim(html_entity_decode(strip_tags((string) $html)));
+
+        return $text === '' ? null : $text;
     }
 }

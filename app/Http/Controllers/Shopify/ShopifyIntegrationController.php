@@ -15,11 +15,15 @@ use Illuminate\Support\Facades\Log;
 
 class ShopifyIntegrationController extends Controller
 {
-    public function status(ShopifyOAuth $oauth): JsonResponse
+    public function status(Request $request, ShopifyOAuth $oauth): JsonResponse
     {
+        $companyId = $request->user()?->resolveCompanyId();
         $shop = ShopifyShop::query()
             ->where('is_active', true)
             ->whereNull('uninstalled_at')
+            ->when($companyId, fn ($q) => $q->where(function ($w) use ($companyId) {
+                $w->where('company_id', $companyId)->orWhereNull('company_id');
+            }))
             ->latest('installed_at')
             ->first();
 
@@ -44,10 +48,15 @@ class ShopifyIntegrationController extends Controller
                 'shop_name' => $shop->shop_name,
                 'shop_email' => $shop->shop_email,
                 'currency' => $shop->currency,
-                'scopes' => $shop->scopes,
+                'scopes' => $shop->grantedScopeList(),
                 'installed_at' => $shop->installed_at?->toIso8601String(),
                 'last_synced_at' => $shop->last_synced_at?->toIso8601String(),
+                'orders_reconciled_at' => $shop->orders_reconciled_at?->toIso8601String(),
                 'orders_count' => $ordersCount,
+                'capabilities' => $shop->capabilities(),
+                'missing_scopes' => $shop->missingScopes(),
+                'needs_reconnect' => $shop->missingScopes() !== [],
+                'inventory_location_id' => $shop->inventory_location_id,
             ] : null,
             'settings_updated_at' => $settings->updated_at?->toIso8601String(),
         ]);
@@ -65,7 +74,7 @@ class ShopifyIntegrationController extends Controller
         $data = $request->validate([
             'client_id' => ['required', 'string', 'max:255'],
             'client_secret' => ['nullable', 'string', 'max:255'],
-            'scopes' => ['nullable', 'string', 'max:500'],
+            'scopes' => ['nullable', 'string', 'max:2000'],
             'api_version' => ['nullable', 'string', 'max:20'],
         ]);
 
@@ -78,10 +87,12 @@ class ShopifyIntegrationController extends Controller
             ], 422);
         }
 
+        $requested = trim($data['scopes'] ?? '') ?: \App\Services\Shopify\ShopifyOAuth::DEFAULT_SCOPES;
         $settings->forceFill([
             'client_id' => trim($data['client_id']),
-            'scopes' => trim($data['scopes'] ?? '') ?: 'read_orders,read_customers,read_products,read_inventory',
-            'api_version' => trim($data['api_version'] ?? '') ?: '2025-01',
+            'scopes' => mb_substr($requested, 0, 255),
+            'requested_scopes' => $requested,
+            'api_version' => trim($data['api_version'] ?? '') ?: \App\Services\Shopify\ShopifyOAuth::API_VERSION,
         ]);
 
         if ($secret !== '') {
@@ -209,5 +220,77 @@ class ShopifyIntegrationController extends Controller
             ]);
 
         return response()->json(['orders' => $orders]);
+    }
+
+    public function logs(Request $request): JsonResponse
+    {
+        $companyId = $request->user()->resolveCompanyId();
+        $logs = \App\Models\ShopifySyncLog::query()
+            ->where('company_id', $companyId)
+            ->when($request->query('direction'), fn ($q, $v) => $q->where('direction', $v))
+            ->when($request->query('status'), fn ($q, $v) => $q->where('status', $v))
+            ->when($request->query('entity'), fn ($q, $v) => $q->where('entity_type', $v))
+            ->latest('id')
+            ->limit(100)
+            ->get();
+
+        return response()->json(['data' => $logs]);
+    }
+
+    public function registerWebhooks(ShopifyOAuth $oauth): JsonResponse
+    {
+        $shop = $this->activeShop();
+        if (! $shop) {
+            return response()->json(['message' => 'Aucune boutique Shopify connectée.'], 422);
+        }
+        try {
+            $oauth->registerWebhooks($shop);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Échec : '.mb_substr($e->getMessage(), 0, 300)], 422);
+        }
+
+        return response()->json(['message' => 'Webhooks réenregistrés.']);
+    }
+
+    public function reconcileNow(): JsonResponse
+    {
+        $shop = $this->activeShop();
+        if (! $shop) {
+            return response()->json(['message' => 'Aucune boutique Shopify connectée.'], 422);
+        }
+        \App\Jobs\ShopifyReconcileJob::dispatch($shop->id, false)->onQueue('shopify');
+
+        return response()->json([
+            'message' => 'Synchronisation lancée.',
+            'orders_reconciled_at' => $shop->fresh()->orders_reconciled_at?->toIso8601String(),
+        ]);
+    }
+
+    public function retryLog(Request $request, \App\Models\ShopifySyncLog $log): JsonResponse
+    {
+        abort_unless((int) $log->company_id === (int) $request->user()->resolveCompanyId(), 404);
+        if ($log->status !== 'failed') {
+            return response()->json(['message' => 'Seules les lignes en échec peuvent être relancées.'], 422);
+        }
+        $log->forceFill(['status' => 'pending', 'error' => null])->save();
+        if (in_array($log->action, ['order_edit', 'product_push', 'fulfillment'], true)) {
+            \App\Jobs\RetryShopifyOutboundJob::dispatch($log->id)->onQueue('shopify');
+        } elseif ($log->shopify_shop_id) {
+            \App\Jobs\ShopifyReconcileJob::dispatch((int) $log->shopify_shop_id, false)->onQueue('shopify');
+        }
+
+        return response()->json(['message' => 'Nouvel essai programmé.']);
+    }
+
+    private function activeShop(): ?ShopifyShop
+    {
+        $companyId = request()->user()?->resolveCompanyId();
+
+        return ShopifyShop::query()
+            ->where('is_active', true)
+            ->whereNull('uninstalled_at')
+            ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
+            ->latest('installed_at')
+            ->first();
     }
 }
