@@ -82,4 +82,11 @@ class Company extends Model
             ['name' => "Lav'Fast Flow", 'is_active' => true]
         );
     }
+
+    protected static function booted(): void
+    {
+        static::created(function (Company $company) {
+            app(\App\Services\Confirmation\ConfirmationStatusProvisioner::class)->provision($company->id);
+        });
+    }
 }

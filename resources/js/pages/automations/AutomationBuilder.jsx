@@ -330,11 +330,20 @@ export default function AutomationBuilder() {
                                                         </option>
                                                     ))}
                                                 </Select>
-                                                <Input
-                                                    value={rule.value ?? ''}
-                                                    onChange={(e) => updateRule(key, i, { value: e.target.value })}
-                                                    placeholder="Valeur"
-                                                />
+                                                {(catalog.condition_fields || []).find((f) => f.key === rule.field)?.options?.length ? (
+                                                    <Select value={rule.value ?? ''} onChange={(e) => updateRule(key, i, { value: e.target.value })}>
+                                                        <option value="">Choisir…</option>
+                                                        {(catalog.condition_fields || []).find((f) => f.key === rule.field).options.map((opt) => (
+                                                            <option key={opt.value ?? opt} value={opt.value ?? opt}>{opt.label ?? opt}</option>
+                                                        ))}
+                                                    </Select>
+                                                ) : (
+                                                    <Input
+                                                        value={rule.value ?? ''}
+                                                        onChange={(e) => updateRule(key, i, { value: e.target.value })}
+                                                        placeholder="Valeur"
+                                                    />
+                                                )}
                                             </div>
                                         ))}
                                         <div className="grid gap-2 sm:grid-cols-2">
@@ -422,6 +431,20 @@ export default function AutomationBuilder() {
                                                 ))}
                                             </Select>
                                         </Field>
+                                        {step.action === 'order.set_confirmation_status' ? (
+                                            <Field label="Statut de confirmation">
+                                                <Select
+                                                    value={step.config?.status_code || ''}
+                                                    onChange={(e) => updateStep(key, { config: { ...(step.config || {}), status_code: e.target.value } })}
+                                                >
+                                                    <option value="">Choisir un statut…</option>
+                                                    {((catalog.actions || []).find((a) => a.key === 'order.set_confirmation_status')?.config_schema || [])
+                                                        .find((field) => field.key === 'status_code')?.options?.map((opt) => (
+                                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                        ))}
+                                                </Select>
+                                            </Field>
+                                        ) : null}
                                         <Field label="Config (JSON) — variables {{order.*}} / {{steps.*}}">
                                             <Textarea
                                                 value={JSON.stringify(step.config || {}, null, 2)}

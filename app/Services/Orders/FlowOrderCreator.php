@@ -419,7 +419,7 @@ GQL;
                 'name' => $name,
             ],
             'shopify_customer_id' => $input['shopify_customer_id'] ?? $order->shopify_customer_id,
-            'confirmation_status' => $order->confirmation_status ?: ConfirmationStatus::defaultCode(),
+            'confirmation_status' => $order->confirmation_status ?: ConfirmationStatus::defaultCode($order->company_id),
             'status' => $order->status ?: 'pending',
         ]);
     }

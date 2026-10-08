@@ -49,8 +49,10 @@ class CommissionService
 
     public function isLost(Order $order): bool
     {
-        return in_array($order->deliveryCategory(), ['retour', 'annulation'], true)
-            || $order->confirmation_status === Order::CONFIRMATION_CANCELLED;
+        $failed = $order->confirmationStatusDefinition()?->counts_as_failure
+            ?? $order->confirmation_status === Order::CONFIRMATION_CANCELLED;
+
+        return in_array($order->deliveryCategory(), ['retour', 'annulation'], true) || $failed;
     }
 
     /** Creates / cancels the commission line of the order. Returns the line when one exists. */

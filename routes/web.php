@@ -79,11 +79,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/statuses', [ConfirmationStatusController::class, 'index']);
         Route::get('/orders', [ConfirmationController::class, 'index']);
         Route::get('/orders/{order}', [ConfirmationController::class, 'show']);
+        Route::post('/orders/{order}/status', [ConfirmationController::class, 'changeStatus']);
         Route::post('/orders/{order}/confirm', [ConfirmationController::class, 'confirm']);
         Route::post('/orders/{order}/no-answer', [ConfirmationController::class, 'noAnswer']);
         Route::post('/orders/{order}/postpone', [ConfirmationController::class, 'postpone']);
         Route::post('/orders/{order}/cancel', [ConfirmationController::class, 'cancel']);
         Route::put('/orders/{order}/internal-note', [ConfirmationController::class, 'updateInternalNote']);
+        Route::put('/orders/{order}/notes', [ConfirmationController::class, 'updateNotes']);
         // T5 — Centre de confirmation
         Route::get('/stats', [ConfirmationCentreController::class, 'stats']);
         Route::get('/orders/{order}/siblings', [ConfirmationCentreController::class, 'siblings']);
@@ -93,12 +95,13 @@ Route::middleware('auth')->group(function () {
     });
 
     /*
-    | Future Paramètres → Statuts de confirmation (API ready, UI later).
+    | Paramètres → Statuts de confirmation.
     */
     Route::middleware('can:settings.manage')->prefix('api/settings/confirmation-statuses')->group(function () {
         Route::get('/', [ConfirmationStatusController::class, 'settingsIndex']);
         Route::post('/', [ConfirmationStatusController::class, 'store']);
         Route::put('/{confirmationStatus}', [ConfirmationStatusController::class, 'update']);
+        Route::delete('/{confirmationStatus}', [ConfirmationStatusController::class, 'destroy']);
         Route::post('/reorder', [ConfirmationStatusController::class, 'reorder']);
     });
 

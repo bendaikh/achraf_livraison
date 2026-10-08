@@ -24,6 +24,7 @@ const Missions = lazy(() => import('./pages/Missions'));
 const Closing = lazy(() => import('./pages/Closing'));
 const Settings = lazy(() => import('./pages/Settings'));
 const StatusSettings = lazy(() => import('./pages/StatusSettings'));
+const ConfirmationStatusSettings = lazy(() => import('./pages/ConfirmationStatusSettings'));
 const LogisticsPartners = lazy(() => import('./pages/LogisticsPartners'));
 const Confirmation = lazy(() => import('./pages/Confirmation'));
 const Assignment = lazy(() => import('./pages/Assignment'));
@@ -264,6 +265,14 @@ export default function AppRouter() {
                         element={
                             <PermissionRoute ability="settings.manage">
                                 <StatusSettings />
+                            </PermissionRoute>
+                        }
+                    />
+                    <Route
+                        path="parametres/statuts-confirmation"
+                        element={
+                            <PermissionRoute ability="settings.manage">
+                                <ConfirmationStatusSettings />
                             </PermissionRoute>
                         }
                     />

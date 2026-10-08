@@ -3,14 +3,17 @@ import { CheckCircle2, ListChecks, PhoneCall, XCircle } from 'lucide-react';
 import api from '../../lib/api';
 
 /** Top cards of the Centre de confirmation — real counters (GET /api/confirmation/stats). */
-export default function ConfirmationStats({ refreshKey = 0, compact = false }) {
+export default function ConfirmationStats({ refreshKey = 0, compact = false, onLoaded }) {
     const [s, setS] = useState(null);
 
     useEffect(() => {
         api.get('/confirmation/stats')
-            .then(({ data }) => setS(data))
+            .then(({ data }) => {
+                setS(data);
+                onLoaded?.(data);
+            })
             .catch(() => setS(null));
-    }, [refreshKey]);
+    }, [refreshKey, onLoaded]);
 
     const cards = [
         { key: 'calls', label: 'Appels aujourd’hui', icon: PhoneCall, color: '#2563eb', metric: s?.calls, mine: s?.mine?.calls_today },
@@ -37,6 +40,23 @@ export default function ConfirmationStats({ refreshKey = 0, compact = false }) {
                     </div>
                 );
             })}
+            {s?.by_status?.length ? (
+                <div className="col-span-2 rounded-2xl border border-slate-200/80 bg-white px-3 py-2.5 text-xs text-slate-600 shadow-sm lg:col-span-4">
+                    <div className="flex flex-wrap gap-x-3 gap-y-1">
+                        {s.by_status.filter((row) => row.count > 0).map((row) => (
+                            <span key={row.code}>
+                                <span className="font-semibold text-slate-800">{row.name}</span> : {row.count}
+                            </span>
+                        ))}
+                        {s.other_statuses ? <span className="font-semibold text-slate-800">autres statuts : {s.other_statuses}</span> : null}
+                    </div>
+                    {s.recall ? (
+                        <div className="mt-1 text-[11px] text-amber-800">
+                            Rappels — En retard {s.recall.overdue ?? 0} · Aujourd’hui {s.recall.today ?? 0} · À venir {s.recall.upcoming ?? 0}
+                        </div>
+                    ) : null}
+                </div>
+            ) : null}
         </div>
     );
 }

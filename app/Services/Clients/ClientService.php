@@ -34,6 +34,9 @@ class ClientService
         $delivered = $in($codes(['succes']));
         $returned = $in($codes(['retour']));
         $cancelled = $in($codes(['annulation']));
+        $companyId = auth()->user()?->resolveCompanyId() ?? \App\Models\Company::default()->id;
+        $failedConfirmation = $in(\App\Models\ConfirmationStatus::codesWithFlag('counts_as_failure', $companyId) ?: [Order::CONFIRMATION_CANCELLED]);
+        $confirmedConfirmation = $in(\App\Models\ConfirmationStatus::codesWithFlag('counts_as_confirmed', $companyId) ?: [Order::CONFIRMATION_CONFIRMED]);
         $date = 'COALESCE(shopify_created_at, created_at)';
 
         $agg = DB::table('orders')
@@ -46,10 +49,10 @@ class ClientService
                 SUM(CASE WHEN delivery_status IN ($delivered) THEN total_price ELSE 0 END) as total_delivered,
                 SUM(CASE WHEN delivery_status IN ($delivered) THEN 1 ELSE 0 END) as delivered,
                 SUM(CASE WHEN delivery_status IN ($returned) THEN 1 ELSE 0 END) as returned,
-                SUM(CASE WHEN confirmation_status = ? OR delivery_status IN ($cancelled) THEN 1 ELSE 0 END) as cancelled,
-                SUM(CASE WHEN confirmation_status = ? THEN 1 ELSE 0 END) as confirmed,
+                SUM(CASE WHEN confirmation_status IN ($failedConfirmation) OR delivery_status IN ($cancelled) THEN 1 ELSE 0 END) as cancelled,
+                SUM(CASE WHEN confirmation_status IN ($confirmedConfirmation) THEN 1 ELSE 0 END) as confirmed,
                 MIN($date) as first_at,
-                MAX($date) as last_at", [Order::CONFIRMATION_CANCELLED, Order::CONFIRMATION_CONFIRMED]);
+                MAX($date) as last_at");
 
         $rates = DB::query()->fromSub($agg, 'a')->selectRaw('a.*,
             CASE WHEN (a.delivered + a.returned) > 0 THEN a.returned * 100.0 / (a.delivered + a.returned) ELSE 0 END as return_rate,

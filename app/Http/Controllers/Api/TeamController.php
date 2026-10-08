@@ -61,8 +61,11 @@ class TeamController extends Controller
 
         $rows = $agents->map(function (User $u) use ($byUser, $assigned, $commissions) {
             $ev = $byUser->get($u->id, collect());
-            $distinct = fn (string $code) => $ev->where('status_code', $code)->pluck('order_id')->unique()->count();
-            $confirmedIds = $ev->where('status_code', Order::CONFIRMATION_CONFIRMED)->pluck('order_id')->unique()->values();
+            $companyId = (int) $u->resolveCompanyId();
+            $codes = fn (string $flag) => \App\Models\ConfirmationStatus::codesWithFlag($flag, $companyId);
+            $categoryCodes = fn (string $category) => \App\Models\ConfirmationStatus::codesOfCategory($category, $companyId);
+            $distinct = fn (array $list) => $ev->whereIn('status_code', $list ?: ['__none__'])->pluck('order_id')->unique()->count();
+            $confirmedIds = $ev->whereIn('status_code', $codes('counts_as_confirmed') ?: [Order::CONFIRMATION_CONFIRMED])->pluck('order_id')->unique()->values();
             $processed = $ev->pluck('order_id')->unique()->count();
             $confirmed = $confirmedIds->count();
             $delivered = $confirmedIds->isEmpty() ? 0 : Order::query()->whereIn('id', $confirmedIds)->inDeliveryCategories(['succes'])->count();
@@ -77,9 +80,9 @@ class TeamController extends Controller
                 'assigned' => (int) ($assigned[$u->id] ?? 0),
                 'processed' => $processed,
                 'confirmed' => $confirmed,
-                'no_answer' => $distinct(Order::CONFIRMATION_NO_ANSWER),
-                'postponed' => $distinct(Order::CONFIRMATION_POSTPONED),
-                'cancelled' => $distinct(Order::CONFIRMATION_CANCELLED),
+                'no_answer' => $distinct($categoryCodes(\App\Models\ConfirmationStatus::CATEGORY_NO_ANSWER) ?: [Order::CONFIRMATION_NO_ANSWER]),
+                'postponed' => $distinct($categoryCodes(\App\Models\ConfirmationStatus::CATEGORY_RECALL) ?: [Order::CONFIRMATION_POSTPONED]),
+                'cancelled' => $distinct($codes('counts_as_failure') ?: [Order::CONFIRMATION_CANCELLED]),
                 'delivered' => $delivered,
                 'confirmation_rate' => $processed ? round($confirmed * 100 / $processed, 1) : null,
                 'delivery_rate' => $confirmed ? round($delivered * 100 / $confirmed, 1) : null,

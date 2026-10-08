@@ -153,7 +153,7 @@ class OrderSyncService
             }
 
             if (! $existing) {
-                $attributes['confirmation_status'] = ConfirmationStatus::defaultCode();
+                $attributes['confirmation_status'] = ConfirmationStatus::defaultCode($shop->resolveCompanyId());
                 $attributes['confirmation_history'] = [[
                     'type' => 'received',
                     'label' => 'Commande reçue depuis Shopify',

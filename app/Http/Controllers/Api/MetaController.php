@@ -25,8 +25,9 @@ class MetaController extends Controller
             'statuses' => DeliveryStatusResource::collection(DeliveryStatus::active()->ordered()->get()),
             'status_categories' => Catalog::toOptions(Catalog::STATUS_CATEGORIES),
             // Configurable confirmation statuses (confirmation_statuses table).
-            'confirmation_statuses' => ConfirmationStatus::query()->active()->ordered()->get()
-                ->map(fn (ConfirmationStatus $s) => ['value' => $s->code, 'label' => $s->name, 'color' => $s->color, 'type' => $s->type])
+            'confirmation_statuses' => ConfirmationStatus::cachedAll($user?->resolveCompanyId())
+                ->filter(fn (ConfirmationStatus $s) => $s->is_active)
+                ->map(fn (ConfirmationStatus $s) => ['value' => $s->code, 'label' => $s->name, 'color' => $s->color, 'type' => $s->type, 'category' => $s->category])
                 ->values(),
             'mission_types' => Catalog::toOptions(Catalog::MISSION_TYPES),
             'mission_statuses' => Catalog::toOptions(Catalog::MISSION_STATUSES),

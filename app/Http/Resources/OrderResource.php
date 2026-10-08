@@ -72,8 +72,9 @@ class OrderResource extends JsonResource
             'is_confirmed' => $this->isConfirmed(),
             'confirmation_channel' => $this->confirmation_channel,
             'discount_total' => (float) $this->discount_total,
-            'confirmation_status_label' => ConfirmationStatus::labelFor($this->confirmation_status),
-            'confirmation_status_color' => ConfirmationStatus::colorFor($this->confirmation_status),
+            'confirmation_status_label' => ConfirmationStatus::labelFor($this->confirmation_status, $this->company_id),
+            'confirmation_status_color' => ConfirmationStatus::colorFor($this->confirmation_status, $this->company_id),
+            'payment_indicator' => $this->paymentCollectIndicator(),
             'delivery_status_id' => $status?->id,
             'delivery_status_code' => $this->delivery_status,
             // Includes inactive statuses so existing orders always display correctly.

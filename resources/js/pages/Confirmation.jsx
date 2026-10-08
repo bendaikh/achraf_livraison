@@ -9,6 +9,11 @@ export default function Confirmation() {
     const [orders, setOrders] = useState([]);
     const [counts, setCounts] = useState({});
     const [statuses, setStatuses] = useState([]);
+    const [tabs, setTabs] = useState([]);
+    const [recall, setRecall] = useState(null);
+    const [bucket, setBucket] = useState(params.get('bucket') || '');
+    const [othersOpen, setOthersOpen] = useState(false);
+    const [othersQuery, setOthersQuery] = useState('');
     const [meta, setMeta] = useState({ current_page: 1, last_page: 1, per_page: 25, total: 0 });
     const navigate = useNavigate();
     const [params] = useSearchParams();
@@ -29,7 +34,7 @@ export default function Confirmation() {
 
     useEffect(() => {
         setPage(1);
-    }, [debouncedSearch, filter, agent]);
+    }, [debouncedSearch, filter, agent, bucket]);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -42,11 +47,14 @@ export default function Confirmation() {
                     search: debouncedSearch || undefined,
                     filter: filter || undefined,
                     agent: agent || undefined,
+                    bucket: bucket || undefined,
                 },
             });
             setOrders(data.orders || []);
             setCounts(data.counts || {});
             setStatuses(data.statuses || []);
+            setTabs(data.tabs || []);
+            setRecall(data.recall || null);
             setMeta(data.meta || { current_page: 1, last_page: 1, per_page: 25, total: 0 });
 
             const nextFilter = data.meta?.filter || data.meta?.default_filter || data.statuses?.[0]?.code;
@@ -59,7 +67,7 @@ export default function Confirmation() {
         } finally {
             setLoading(false);
         }
-    }, [page, debouncedSearch, filter, agent]);
+    }, [page, debouncedSearch, filter, agent, bucket]);
 
     useEffect(() => {
         load();
@@ -69,6 +77,7 @@ export default function Confirmation() {
     const queueQs = () => {
         const q = new URLSearchParams();
         if (filter) q.set('filter', filter);
+        if (bucket) q.set('bucket', bucket);
         if (debouncedSearch) q.set('search', debouncedSearch);
         if (agent) q.set('agent', agent);
         const str = q.toString();
@@ -80,14 +89,19 @@ export default function Confirmation() {
         if (orders[0]) openOrder(orders[0]);
     };
 
+    const mainTabs = tabs.length ? tabs : statuses.filter((item) => item.show_in_filters);
     const filterButtons = useMemo(
         () =>
-            statuses.map((item) => ({
+            mainTabs.map((item) => ({
                 value: item.code,
                 label: item.filter_label || item.name,
                 count: counts[item.code] ?? 0,
             })),
-        [statuses, counts],
+        [mainTabs, counts],
+    );
+    const otherStatuses = statuses.filter((item) => !mainTabs.some((tab) => tab.code === item.code));
+    const visibleOthers = otherStatuses.filter((item) =>
+        `${item.name} ${item.filter_label || ''}`.toLowerCase().includes(othersQuery.trim().toLowerCase()),
     );
 
     return (
@@ -158,7 +172,7 @@ export default function Confirmation() {
                         ))}
                     </select>
                     </div>
-                    <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
+                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
                         {filterButtons.map((item) => {
                             const active = filter === item.value;
                             return (
@@ -166,7 +180,7 @@ export default function Confirmation() {
                                     key={item.value}
                                     type="button"
                                     onClick={() => setFilter(item.value)}
-                                    className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                                         active
                                             ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20'
                                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80'
@@ -179,7 +193,63 @@ export default function Confirmation() {
                                 </button>
                             );
                         })}
+                        {otherStatuses.length ? (
+                            <div className="relative">
+                                <button
+                                    type="button"
+                                    onClick={() => setOthersOpen((v) => !v)}
+                                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${otherStatuses.some((item) => item.code === filter) ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}
+                                >
+                                    Autres statuts ▾
+                                </button>
+                                {othersOpen ? (
+                                    <div className="absolute left-0 z-20 mt-1 w-64 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+                                        <input
+                                            value={othersQuery}
+                                            onChange={(e) => setOthersQuery(e.target.value)}
+                                            placeholder="Rechercher un statut…"
+                                            className="mb-2 h-8 w-full rounded-lg border border-slate-200 px-2 text-xs"
+                                        />
+                                        <div className="max-h-56 overflow-y-auto">
+                                            {visibleOthers.map((item) => (
+                                                <button
+                                                    key={item.code}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setFilter(item.code);
+                                                        setOthersOpen(false);
+                                                    }}
+                                                    className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                                >
+                                                    <span>{item.name}</span>
+                                                    <span className="text-slate-400">{counts[item.code] ?? 0}</span>
+                                                </button>
+                                            ))}
+                                            {!visibleOthers.length ? <p className="px-2 py-1 text-xs text-slate-400">Aucun statut</p> : null}
+                                        </div>
+                                    </div>
+                                ) : null}
+                            </div>
+                        ) : null}
                     </div>
+                    {recall ? (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                            {[
+                                ['overdue', 'En retard', recall.overdue],
+                                ['today', 'Aujourd’hui', recall.today],
+                                ['upcoming', 'À venir', recall.upcoming],
+                            ].map(([key, label, count]) => (
+                                <button
+                                    key={key}
+                                    type="button"
+                                    onClick={() => setBucket(bucket === key ? '' : key)}
+                                    className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${bucket === key ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-800'}`}
+                                >
+                                    {label} ({count ?? 0})
+                                </button>
+                            ))}
+                        </div>
+                    ) : null}
                 </div>
 
                 {error ? (

@@ -267,7 +267,7 @@ class OrderController extends Controller
         unset($data['driver_id'], $data['confirmation_status']);
 
         $order = Order::create(Order::attributesFromForm($data) + [
-            'confirmation_status' => ConfirmationStatus::defaultCode(),
+            'confirmation_status' => ConfirmationStatus::defaultCode($request->user()->resolveCompanyId()),
             'currency' => 'MAD',
             'source' => $data['source'] ?? 'Manuel',
         ]);
@@ -356,7 +356,7 @@ class OrderController extends Controller
     public function changeConfirmation(Request $request, Order $order)
     {
         $data = $request->validate([
-            'confirmation_status' => ['required', 'string', Rule::exists('confirmation_statuses', 'code')->where('is_active', true)],
+            'confirmation_status' => ['required', 'string', Rule::exists('confirmation_statuses', 'code')->where(fn ($q) => $q->where('company_id', $request->user()->resolveCompanyId())->where('is_active', true))],
             'reason' => ['nullable', 'string', 'max:500'],
             'recall_at' => ['nullable', 'date'],
         ]);
@@ -410,7 +410,7 @@ class OrderController extends Controller
             'quantity' => ['nullable', 'integer', 'min:1'],
             'amount' => [$req, 'numeric', 'min:0'],
             'payment_method' => ['nullable', Rule::in(array_keys(Catalog::PAYMENT_METHODS))],
-            'confirmation_status' => ['nullable', 'string', Rule::exists('confirmation_statuses', 'code')->where('is_active', true)],
+            'confirmation_status' => ['nullable', 'string', Rule::exists('confirmation_statuses', 'code')->where(fn ($q) => $q->where('company_id', $request->user()->resolveCompanyId())->where('is_active', true))],
             'driver_id' => ['nullable', 'integer', 'exists:drivers,id'],
             'carrier' => ['nullable', 'string', 'max:60'],
             'assigned_user_id' => ['nullable', 'integer', 'exists:users,id'],

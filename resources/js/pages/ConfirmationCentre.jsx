@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
-    ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Headphones, Inbox, MessageCircle, Pause, Phone, PhoneCall,
+    ArrowLeft, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock3, Headphones, Inbox, MessageCircle, MoreHorizontal, Pause, Phone, PhoneCall,
     PhoneOff, Play, Plus, Tag, Trash2, X, XCircle,
 } from 'lucide-react';
 import api, { errorMessage } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useMeta } from '../context/MetaContext';
 import { formatDH } from '../lib/format';
 import OrderItemsEditor from '../components/orders/OrderItemsEditor';
+import { CancelOrderDialog } from '../components/orders/OrderLifecycleDialogs';
 import ConfirmationStats from '../components/confirmation/ConfirmationStats';
 import { BlockedClientAlert } from '../components/clients/ClientBadges';
 import { Alert, Button, Card, Field, Input, Select, Spinner, Textarea } from '../components/ui';
@@ -32,6 +34,7 @@ export default function ConfirmationCentre() {
     const [params] = useSearchParams();
     const navigate = useNavigate();
     const { can } = useAuth();
+    const metaCtx = useMeta();
     const queueQs = new URLSearchParams(Object.fromEntries([...params.entries()].filter(([k, v]) => ['filter', 'search', 'agent'].includes(k) && v))).toString();
 
     const [order, setOrder] = useState(null);
@@ -41,7 +44,9 @@ export default function ConfirmationCentre() {
     const [busy, setBusy] = useState(false);
     const [statsKey, setStatsKey] = useState(0);
     const [auto, setAuto] = useState(() => window.localStorage.getItem(AUTO_KEY) === '1');
-    const [modal, setModal] = useState(null); // postpone | cancel | call | discount
+    const [modal, setModal] = useState(null); // postpone | cancel | call | discount | status | menu
+    const [statuses, setStatuses] = useState([]);
+    const [centreStats, setCentreStats] = useState(null);
 
     const load = useCallback(async () => {
         setError('');
@@ -51,6 +56,7 @@ export default function ConfirmationCentre() {
                 api.get(`/confirmation/orders/${id}/siblings`, { params: Object.fromEntries(new URLSearchParams(queueQs)) }),
             ]);
             setOrder(d.order);
+            setStatuses(d.statuses || []);
             setSib(s);
         } catch (e) {
             setError(errorMessage(e));
@@ -123,7 +129,8 @@ export default function ConfirmationCentre() {
                             ) : null}
                         </div>
                         <p className="text-xs text-slate-500">
-                            {sib ? (sib.in_queue ? `Commande ${sib.position} / ${sib.total} dans la file` : `${sib.total} commande(s) à traiter dans la file`) : 'Centre de confirmation'}
+                            {sib ? (sib.in_queue ? `Commande ${sib.position} / ${sib.total} dans la file` : `${sib.total} commande(s) restantes dans la file`) : 'Centre de confirmation'}
+                            {centreStats?.recall ? ` · En retard ${centreStats.recall.overdue ?? 0} · Aujourd’hui ${centreStats.recall.today ?? 0} · À venir ${centreStats.recall.upcoming ?? 0}` : ''}
                         </p>
                     </div>
                 </div>
@@ -142,7 +149,7 @@ export default function ConfirmationCentre() {
                 </div>
             </div>
 
-            <ConfirmationStats refreshKey={statsKey} />
+            <ConfirmationStats refreshKey={statsKey} onLoaded={setCentreStats} />
 
             {toast ? <Alert type="success">{toast}</Alert> : null}
             <Alert>{error}</Alert>
@@ -159,17 +166,19 @@ export default function ConfirmationCentre() {
                         <Card title="Contact" className="lg:hidden">
                             <Contact order={order} onLogCall={() => setModal('call')} />
                         </Card>
-                        <Card title="Commande" subtitle={`Reçue le ${formatHistoryDate(order.received_at)}${order.shop_name ? ` · ${order.shop_name}` : ''}`}>
+                        <Card title="Informations commande" subtitle={`Reçue le ${formatHistoryDate(order.received_at)}${order.shop_name ? ` · ${order.shop_name}` : ''}`}>
                             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
                                 <Info label="N° commande" value={orderDisplayName(order)} />
-                                <Info label="Client" value={order.customer_name} strong />
-                                <Info label="Téléphone" value={order.phone} />
-                                <Info label="Ville" value={order.city} />
-                                <Info label="Adresse" value={order.address} className="col-span-2" />
-                                <Info label="Statut livraison" value={full?.delivery_status?.name || '—'} />
-                                <Info label="Agent assigné" value={full?.assigned_user?.name || 'Non assignée'} />
-                                <Info label="Paiement" value={full?.payment_method === 'paye' ? 'Déjà payé' : 'À la livraison (COD)'} />
+                                <Info label="Source" value={order.source_kind || order.source || 'Flow'} />
+                                <Info label="Date et heure" value={formatHistoryDate(order.received_at)} />
+                                <Info label="Statut confirmation" value={`${order.confirmation_status_label || '—'}${order.confirmation_inactive ? ' · inactif' : ''}`} />
+                                <Info label="Statut paiement" value={order.payment_label} />
+                                <Info label="Moyen de paiement" value={order.payment_method === 'paye' ? 'Carte' : order.payment_method === 'partial' ? 'Partiel' : 'COD'} />
+                                <Info label="Total commande" value={formatDH(order.total_price)} />
+                                <Info label="Déjà payé" value={formatDH(order.amount_paid || 0)} />
+                                <Info label="Reste à payer / à encaisser" value={formatDH(order.amount_due ?? 0)} />
                             </dl>
+                            <p className="mt-3 rounded-xl bg-blue-50 px-3 py-2 text-sm font-extrabold text-blue-900">{order.payment_indicator}</p>
                         </Card>
 
                         <Card title="Produits" bodyClassName="p-3 sm:p-4">
@@ -181,16 +190,21 @@ export default function ConfirmationCentre() {
                         </Card>
 
                         <Card title="Notes">
-                            <Notes order={order} onSave={(note) => act(() => api.put(`/confirmation/orders/${id}/internal-note`, { internal_note: note }), { advance: false })} busy={busy} />
+                            <Notes
+                                order={order}
+                                busy={busy}
+                                onSave={(payload) => act(() => api.put(`/confirmation/orders/${id}/notes`, payload), { advance: false })}
+                            />
                         </Card>
 
-                        <Card title="Historique">
+                        <Card title="Historique des appels / tentatives">
                             <ul className="space-y-1.5">
-                                {(order.confirmation_history || []).length === 0 ? <li className="text-sm text-slate-400">Aucun événement</li> : null}
-                                {[...(order.confirmation_history || [])].reverse().map((entry, i) => (
-                                    <li key={`${entry.at}-${i}`} className="rounded-xl border border-slate-100 px-3 py-1.5 text-sm text-slate-700">
-                                        {formatHistoryLine(entry)}
-                                    </li>
+                                {(order.timeline || []).length === 0 && (order.history_lines || []).length === 0 ? <li className="text-sm text-slate-400">Aucun événement</li> : null}
+                                {(order.timeline || []).map((entry, i) => (
+                                    <li key={`t-${entry.at}-${i}`} className="rounded-xl border border-slate-100 px-3 py-1.5 text-sm text-slate-700">{entry.label}</li>
+                                ))}
+                                {(order.history_lines || []).map((entry) => (
+                                    <li key={entry.id} className="rounded-xl border border-slate-100 px-3 py-1.5 text-sm text-slate-700">{entry.formatted || formatHistoryLine(entry)}</li>
                                 ))}
                             </ul>
                         </Card>
@@ -212,8 +226,35 @@ export default function ConfirmationCentre() {
                                 {order.postponed_until ? <Row label="Rappel prévu" value={formatHistoryDate(order.postponed_until)} /> : null}
                                 {order.cancellation_reason ? <Row label="Motif d’annulation" value={order.cancellation_reason} /> : null}
                             </div>
+                            {can('orders.assign_agent') ? (
+                                <div className="mt-3">
+                                    <Field label="Réaffecter">
+                                        <Select
+                                            value={order.assigned_user_id || ''}
+                                            onChange={(e) => {
+                                                const userId = e.target.value ? Number(e.target.value) : null;
+                                                act(() => api.post('/orders/assign-agent', { order_ids: [order.id], user_id: userId }), { advance: false }).then(load);
+                                            }}
+                                        >
+                                            <option value="">Non assignée</option>
+                                            {(metaCtx.users || []).map((u) => (
+                                                <option key={u.id} value={u.id}>{u.name}</option>
+                                            ))}
+                                        </Select>
+                                    </Field>
+                                </div>
+                            ) : null}
                             <div className="mt-3 hidden lg:block">
-                                <Actions canAct={canAct} busy={busy} onConfirm={(channel) => act(() => api.post(`/confirmation/orders/${id}/confirm`, { channel }))} onNoAnswer={() => act(() => api.post(`/confirmation/orders/${id}/no-answer`))} onPostpone={() => setModal('postpone')} onCancel={() => setModal('cancel')} />
+                                <Actions
+                                    canAct={canAct}
+                                    busy={busy}
+                                    onConfirm={(channel) => act(() => api.post(`/confirmation/orders/${id}/confirm`, { channel }))}
+                                    onNoAnswer={() => act(() => api.post(`/confirmation/orders/${id}/no-answer`))}
+                                    onPostpone={() => setModal('postpone')}
+                                    onCancel={() => setModal('cancel')}
+                                    onChangeStatus={() => setModal('status')}
+                                    onOrderCancel={can('orders.cancel') ? () => setModal('order-cancel') : null}
+                                />
                             </div>
                         </Card>
 
@@ -241,12 +282,40 @@ export default function ConfirmationCentre() {
             {/* Mobile: actions always reachable at the bottom */}
             {order ? (
                 <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-3 py-2 backdrop-blur lg:hidden">
-                    <Actions canAct={canAct} busy={busy} mobile onConfirm={(channel) => act(() => api.post(`/confirmation/orders/${id}/confirm`, { channel }))} onNoAnswer={() => act(() => api.post(`/confirmation/orders/${id}/no-answer`))} onPostpone={() => setModal('postpone')} onCancel={() => setModal('cancel')} />
+                    <Actions
+                        canAct={canAct}
+                        busy={busy}
+                        mobile
+                        onConfirm={(channel) => act(() => api.post(`/confirmation/orders/${id}/confirm`, { channel }))}
+                        onNoAnswer={() => act(() => api.post(`/confirmation/orders/${id}/no-answer`))}
+                        onPostpone={() => setModal('postpone')}
+                        onCancel={() => setModal('cancel')}
+                        onChangeStatus={() => setModal('status')}
+                    />
                 </div>
             ) : null}
 
             {modal === 'postpone' ? <PostponeModal busy={busy} onClose={() => setModal(null)} onSubmit={(p) => act(() => api.post(`/confirmation/orders/${id}/postpone`, p))} /> : null}
             {modal === 'cancel' ? <CancelModal busy={busy} onClose={() => setModal(null)} onSubmit={(p) => act(() => api.post(`/confirmation/orders/${id}/cancel`, p))} /> : null}
+            {modal === 'status' ? (
+                <StatusModal
+                    statuses={statuses}
+                    products={order?.products || []}
+                    busy={busy}
+                    onClose={() => setModal(null)}
+                    onSubmit={(p) => act(() => api.post(`/confirmation/orders/${id}/status`, p))}
+                />
+            ) : null}
+            {modal === 'order-cancel' && order ? (
+                <CancelOrderDialog
+                    orders={[order]}
+                    onClose={() => setModal(null)}
+                    onDone={() => {
+                        setModal(null);
+                        load();
+                    }}
+                />
+            ) : null}
             {modal === 'call' ? <CallModal busy={busy} onClose={() => setModal(null)} onSubmit={(p) => act(() => api.post(`/confirmation/orders/${id}/calls`, p), { advance: false }).then(load)} /> : null}
             {modal === 'discount' ? <DiscountModal busy={busy} total={order?.total_price} onClose={() => setModal(null)} onSubmit={(p) => act(() => api.post(`/confirmation/orders/${id}/discounts`, p), { advance: false }).then(load)} /> : null}
         </div>
@@ -297,19 +366,28 @@ function Totals({ order, full }) {
 }
 
 function Notes({ order, onSave, busy }) {
-    const [note, setNote] = useState(order.internal_note || '');
-    useEffect(() => setNote(order.internal_note || ''), [order.id, order.internal_note]);
+    const [shopifyNote, setShopifyNote] = useState(order.note || '');
+    const [internal, setInternal] = useState(order.internal_note || '');
+    const [confirmation, setConfirmation] = useState(order.confirmation_note || '');
+    useEffect(() => {
+        setShopifyNote(order.note || '');
+        setInternal(order.internal_note || '');
+        setConfirmation(order.confirmation_note || '');
+    }, [order.id, order.note, order.internal_note, order.confirmation_note]);
+    const dirty = shopifyNote !== (order.note || '') || internal !== (order.internal_note || '') || confirmation !== (order.confirmation_note || '');
     return (
         <div className="space-y-3">
-            <div className="rounded-xl bg-slate-50 px-3 py-2">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Note Shopify</p>
-                <p className="mt-0.5 whitespace-pre-wrap text-sm text-slate-700">{order.note || 'Aucune note Shopify'}</p>
-            </div>
-            <Field label="Note interne" hint="Privée Lav'Fast Flow — ne modifie pas Shopify">
-                <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ajouter une note interne…" />
+            <Field label="Note Shopify / client" hint="Envoyée à Shopify pour une commande connectée.">
+                <Textarea value={shopifyNote} onChange={(e) => setShopifyNote(e.target.value)} placeholder="Note client" />
             </Field>
-            <Button size="sm" variant="secondary" disabled={busy || note === (order.internal_note || '')} onClick={() => onSave(note)}>
-                Enregistrer la note
+            <Field label="Note interne" hint="Privée Lav'Fast Flow — ne modifie pas Shopify">
+                <Textarea value={internal} onChange={(e) => setInternal(e.target.value)} placeholder="Ajouter une note interne…" />
+            </Field>
+            <Field label="Note de confirmation">
+                <Textarea value={confirmation} onChange={(e) => setConfirmation(e.target.value)} placeholder="Commentaire de confirmation" />
+            </Field>
+            <Button size="sm" variant="secondary" disabled={busy || !dirty} onClick={() => onSave({ note: shopifyNote, internal_note: internal, confirmation_note: confirmation })}>
+                Enregistrer les notes
             </Button>
         </div>
     );
@@ -333,10 +411,17 @@ function Contact({ order, onLogCall }) {
             <div className="text-sm">
                 <div className="font-bold text-slate-900">{order.customer_name || '—'}</div>
                 <div className="font-mono text-slate-700">{order.phone || '—'}</div>
+                <div className="text-slate-600">{order.city || '—'} · {order.address || '—'}</div>
+                {order.email ? <div className="text-slate-500">{order.email}</div> : null}
+                {order.client_history ? (
+                    <p className="mt-1 text-xs text-slate-500">
+                        {order.client_history.previous} commande(s) précédente(s) · {order.client_history.delivered} livrée(s) · {order.client_history.cancelled} annulée(s)/refusée(s) · {order.client_history.returned} retour(s)
+                    </p>
+                ) : null}
             </div>
             <div className="grid grid-cols-2 gap-2">
                 {tel ? (
-                    <a href={tel} className={`${btn} bg-blue-600 text-white`}>
+                    <a href={tel} onClick={onLogCall} className={`${btn} bg-blue-600 text-white`}>
                         <Phone className="h-4 w-4" /> Appeler
                     </a>
                 ) : (
@@ -413,9 +498,18 @@ function Discounts({ order, canRemove, onRemove }) {
     );
 }
 
-function Actions({ canAct, busy, onConfirm, onNoAnswer, onPostpone, onCancel, mobile = false }) {
+function Actions({ canAct, busy, onConfirm, onNoAnswer, onPostpone, onCancel, onChangeStatus, onOrderCancel, mobile = false }) {
     const [channel, setChannel] = useState('phone');
-    if (!canAct) return <p className="text-xs text-slate-500">Aucune action de confirmation possible pour ce statut.</p>;
+    if (!canAct) {
+        return (
+            <div className="space-y-2">
+                <p className="text-xs text-slate-500">Les boutons rapides sont masqués pour un statut final. Le statut actuel peut encore être changé.</p>
+                <button type="button" disabled={busy} onClick={onChangeStatus} className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700">
+                    <ChevronDown className="h-4 w-4" /> Changer le statut ▾
+                </button>
+            </div>
+        );
+    }
     const btn = `inline-flex ${mobile ? 'h-11' : 'h-10'} items-center justify-center gap-1.5 rounded-xl text-sm font-bold disabled:opacity-50`;
     return (
         <div className="space-y-2">
@@ -435,11 +529,21 @@ function Actions({ canAct, busy, onConfirm, onNoAnswer, onPostpone, onCancel, mo
                 <button type="button" disabled={busy} onClick={onPostpone} className={`${btn} border border-violet-200 bg-violet-50 text-violet-700`}>
                     <Clock3 className="h-4 w-4" /> <span className={mobile ? 'sr-only sm:not-sr-only' : ''}>Reporter</span>
                 </button>
-                <button type="button" disabled={busy} onClick={onCancel} className={`${btn} border border-rose-200 bg-rose-50 text-rose-700`}>
-                    <XCircle className="h-4 w-4" /> <span className={mobile ? 'sr-only sm:not-sr-only' : ''}>Annuler</span>
+                <button type="button" disabled={busy} onClick={onCancel} title="Annuler (confirmation) : change seulement le statut de confirmation. L’annulation de la commande (Shopify / livraison) est dans le menu ⋯." className={`${btn} border border-rose-200 bg-rose-50 text-rose-700`}>
+                    <XCircle className="h-4 w-4" /> <span className={mobile ? 'sr-only' : ''}>Annuler (confirmation)</span>
                 </button>
             </div>
             {mobile ? <div className="grid grid-cols-4 text-center text-[10px] font-semibold text-slate-500"><span>Confirmer</span><span>Pas de rép.</span><span>Reporter</span><span>Annuler</span></div> : null}
+            <div className="flex gap-2">
+                <button type="button" disabled={busy} onClick={onChangeStatus} className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700">
+                    <ChevronDown className="h-4 w-4" /> Changer le statut ▾
+                </button>
+                {onOrderCancel ? (
+                    <button type="button" disabled={busy} onClick={onOrderCancel} title="Annuler la commande : annule la commande elle-même (livraison / Shopify). Ce n’est pas le statut de confirmation." className="inline-flex h-10 items-center justify-center gap-1 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-600" aria-label="Annuler la commande">
+                        <MoreHorizontal className="h-4 w-4" />
+                    </button>
+                ) : null}
+            </div>
         </div>
     );
 }
@@ -499,7 +603,7 @@ function CancelModal({ busy, onClose, onSubmit }) {
     const [reason, setReason] = useState('');
     const [comment, setComment] = useState('');
     return (
-        <Modal title="Annuler la commande" onClose={onClose}>
+        <Modal title="Annuler (confirmation)" onClose={onClose}>
             <div className="space-y-3">
                 <Field label="Motif *">
                     <Textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ex. client refuse, doublon, adresse invalide…" />
@@ -510,6 +614,77 @@ function CancelModal({ busy, onClose, onSubmit }) {
                 <Button className="w-full" variant="danger" disabled={busy || reason.trim().length < 3} onClick={() => onSubmit({ reason: reason.trim(), comment: comment.trim() || undefined })}>
                     Confirmer l’annulation
                 </Button>
+            </div>
+        </Modal>
+    );
+}
+
+function StatusModal({ statuses, products, busy, onClose, onSubmit }) {
+    const [code, setCode] = useState('');
+    const [query, setQuery] = useState('');
+    const [reason, setReason] = useState('');
+    const [comment, setComment] = useState('');
+    const [date, setDate] = useState('');
+    const [time, setTime] = useState('');
+    const [product, setProduct] = useState('');
+    const [restock, setRestock] = useState('');
+    const status = statuses.find((item) => item.code === code);
+    const visible = statuses.filter((item) => `${item.name} ${item.category_label || ''}`.toLowerCase().includes(query.trim().toLowerCase()));
+    function submit() {
+        const payload = { status_code: code };
+        if (status?.requires_reason) payload.reason = reason;
+        if (status?.requires_comment || comment) payload.comment = comment;
+        if (status?.requires_recall_date || date) payload.recall_at = date;
+        if (status?.requires_time || time) payload.recall_time = time;
+        if (status?.requires_product) payload.product_line_key = product;
+        if (restock) payload.expected_restock_date = restock;
+        onSubmit(payload);
+    }
+    return (
+        <Modal title="Changer le statut" onClose={onClose}>
+            <div className="space-y-3">
+                <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Rechercher un statut…" />
+                <Select value={code} onChange={(e) => setCode(e.target.value)} aria-label="Statut">
+                    <option value="">Choisir…</option>
+                    {visible.map((item) => (
+                        <option key={item.code} value={item.code}>{item.name}</option>
+                    ))}
+                </Select>
+                {status?.requires_recall_date ? (
+                    <Field label="Date de rappel *"><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+                ) : null}
+                {status?.requires_time ? (
+                    <Field label="Heure *"><Input type="time" value={time} onChange={(e) => setTime(e.target.value)} /></Field>
+                ) : null}
+                {status?.requires_reason ? (
+                    <Field label="Motif *">
+                        {(status.reason_options || []).length ? (
+                            <Select value={reason} onChange={(e) => setReason(e.target.value)}>
+                                <option value="">Choisir…</option>
+                                {status.reason_options.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                            </Select>
+                        ) : (
+                            <Input value={reason} onChange={(e) => setReason(e.target.value)} />
+                        )}
+                    </Field>
+                ) : null}
+                {status?.requires_comment ? (
+                    <Field label="Commentaire *"><Textarea rows={2} value={comment} onChange={(e) => setComment(e.target.value)} /></Field>
+                ) : null}
+                {status?.requires_product ? (
+                    <Field label="Produit concerné *">
+                        <Select value={product} onChange={(e) => setProduct(e.target.value)}>
+                            <option value="">Choisir…</option>
+                            {products.map((line) => (
+                                <option key={line.key || line.id} value={line.key || line.id}>{line.title}</option>
+                            ))}
+                        </Select>
+                    </Field>
+                ) : null}
+                {status?.category === 'probleme_stock' ? (
+                    <Field label="Réapprovisionnement prévu"><Input type="date" value={restock} onChange={(e) => setRestock(e.target.value)} /></Field>
+                ) : null}
+                <Button className="w-full" disabled={busy || !code} onClick={submit}>Enregistrer le statut</Button>
             </div>
         </Modal>
     );

@@ -33,8 +33,8 @@ export default function ConfirmationOrderCard({ order, onOpen }) {
                     <p className="text-sm font-bold text-slate-900">
                         {formatMoney(order.total_price, order.currency)}
                     </p>
-                    <p className="mt-1 text-[11px] font-semibold text-blue-700">
-                        À encaisser : {formatMoney(order.amount_due ?? order.total_price, order.currency)}
+                    <p className="mt-1 max-w-[14rem] text-xs font-extrabold text-blue-800">
+                        {order.payment_indicator || `À encaisser : ${formatMoney(order.amount_due ?? order.total_price, order.currency)}`}
                     </p>
                     <p className="mt-0.5 text-[10px] font-medium text-slate-500">{order.payment_label || ''}</p>
                     <p className="mt-1 text-[11px] font-medium text-slate-400">

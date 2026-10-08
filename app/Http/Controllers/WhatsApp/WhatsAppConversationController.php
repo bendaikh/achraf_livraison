@@ -229,7 +229,7 @@ class WhatsAppConversationController extends Controller
                 'phone' => $order->phone,
                 'status' => $order->status,
                 'confirmation_status' => $order->confirmation_status,
-                'confirmation_label' => Order::confirmationLabel((string) $order->confirmation_status),
+                'confirmation_label' => Order::confirmationLabel((string) $order->confirmation_status, $order->company_id),
                 'total_price' => $order->total_price,
                 'currency' => $order->currency,
                 'city' => $order->shippingCity(),

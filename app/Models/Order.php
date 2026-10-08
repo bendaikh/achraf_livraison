@@ -31,6 +31,9 @@ class Order extends Model
 
     public const CONFIRMATION_CANCELLED = 'cancelled';
 
+    /** Set by ConfirmationStatusChanger just before save so automations receive the full context. */
+    public ?array $confirmationChangeContext = null;
+
     protected $fillable = [
         'shopify_shop_id',
         'shopify_order_id',
@@ -68,6 +71,7 @@ class Order extends Model
         'note',
         'internal_note',
         'confirmation_history',
+        'confirmation_note',
         'confirmed_by',
         'confirmed_at',
         'confirmation_acted_by',
@@ -491,7 +495,7 @@ class Order extends Model
 
     public function confirmationStatusDefinition(): ?ConfirmationStatus
     {
-        return ConfirmationStatus::findByCode($this->confirmation_status);
+        return ConfirmationStatus::findByCode($this->confirmation_status, $this->company_id);
     }
 
     public function isDueForConfirmation(): bool
@@ -506,9 +510,10 @@ class Order extends Model
             return true;
         }
 
-        return $definition->queue_behavior === ConfirmationStatus::BEHAVIOR_FUTURE_ONLY
-            && $this->postponed_until
-            && $this->postponed_until->lte(now());
+        return $this->postponed_until
+            && $this->postponed_until->lte(now())
+            && ! $definition->is_terminal
+            && ! $definition->is_final;
     }
 
     public function canPerformConfirmationActions(): bool
@@ -516,7 +521,11 @@ class Order extends Model
         $definition = $this->confirmationStatusDefinition();
 
         if ($definition) {
-            return ! $definition->is_terminal && $definition->is_active;
+            if (! $definition->is_active) {
+                return true;
+            }
+
+            return ! $definition->is_terminal && ! $definition->is_final;
         }
 
         return ! in_array($this->confirmation_status, [
@@ -527,8 +536,48 @@ class Order extends Model
 
     public function isConfirmed(): bool
     {
-        return in_array($this->confirmation_status, ConfirmationStatus::codesOfType(ConfirmationStatus::TYPE_SUCCESS), true)
-            || $this->confirmation_status === self::CONFIRMATION_CONFIRMED;
+        $definition = $this->confirmationStatusDefinition();
+        if ($definition) {
+            return (bool) $definition->counts_as_confirmed;
+        }
+
+        return $this->confirmation_status === self::CONFIRMATION_CONFIRMED;
+    }
+
+    /** Brahim: « COD – 350 DH à encaisser », « Payée par carte – 0 DH à encaisser », « Partiellement payée – 250 DH à encaisser ». */
+    public function paymentCollectIndicator(): string
+    {
+        $due = $this->formatDh($this->amountDue());
+        $prefix = match ($this->paymentMethod()) {
+            'paye' => 'Payée par carte',
+            'partial' => 'Partiellement payée',
+            default => 'COD',
+        };
+
+        return $prefix.' – '.$due.' DH à encaisser';
+    }
+
+    public function sourceKind(): string
+    {
+        if ($this->shopify_order_id || $this->shopify_shop_id) {
+            return 'Shopify';
+        }
+        $source = mb_strtolower(trim((string) $this->source));
+        if ($source === '' || str_contains($source, 'flow') || in_array($source, ['manuel', 'manual'], true)) {
+            return 'Flow';
+        }
+
+        return 'Autre';
+    }
+
+    public function formatDh(float $amount): string
+    {
+        $rounded = round($amount, 2);
+        if (abs($rounded - round($rounded)) < 0.001) {
+            return (string) (int) round($rounded);
+        }
+
+        return rtrim(rtrim(number_format($rounded, 2, '.', ''), '0'), '.');
     }
 
     /** The configurable status of this order (uses the loaded relation when available). */
@@ -668,9 +717,9 @@ class Order extends Model
         return data_get($this->shipping_address, 'city');
     }
 
-    public static function confirmationLabel(string $status): string
+    public static function confirmationLabel(string $status, ?int $companyId = null): string
     {
-        return ConfirmationStatus::labelFor($status);
+        return ConfirmationStatus::labelFor($status, $companyId ?? auth()->user()?->resolveCompanyId());
     }
 
     public function postponedUntilFormatted(): ?string
@@ -733,7 +782,10 @@ class Order extends Model
 
     public function scopeConfirmed(Builder $query): Builder
     {
-        return $query->whereIn('confirmation_status', ConfirmationStatus::codesOfType(ConfirmationStatus::TYPE_SUCCESS) ?: [self::CONFIRMATION_CONFIRMED]);
+        $companyId = auth()->user()?->resolveCompanyId() ?? Company::default()->id;
+        $codes = ConfirmationStatus::codesWithFlag('counts_as_confirmed', $companyId);
+
+        return $query->whereIn('confirmation_status', $codes ?: [self::CONFIRMATION_CONFIRMED]);
     }
 
     public function scopeAwaitingAssignment(Builder $query): Builder

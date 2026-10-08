@@ -30,9 +30,46 @@ class AutomationController extends Controller
     }
 
     /** Catalog: triggers / conditions / actions for the builder. */
-    public function catalog(AutomationRegistry $registry)
+    public function catalog(Request $request, AutomationRegistry $registry)
     {
-        return response()->json(['data' => $registry->catalog()]);
+        $data = $registry->catalog();
+        $companyId = $this->companyId($request);
+        $options = \App\Models\ConfirmationStatus::cachedAll($companyId)
+            ->where('is_active', true)
+            ->map(fn ($status) => ['value' => $status->code, 'label' => $status->name])
+            ->values()
+            ->all();
+        $categories = collect(\App\Models\ConfirmationStatus::CATEGORIES)
+            ->map(fn ($label, $value) => ['value' => $value, 'label' => $label])
+            ->values()
+            ->all();
+
+        foreach ($data['condition_fields'] as &$field) {
+            if ($field['key'] === 'confirmation_status') {
+                $field['type'] = 'select';
+                $field['options'] = $options;
+            }
+            if ($field['key'] === 'confirmation_category') {
+                $field['type'] = 'select';
+                $field['options'] = $categories;
+            }
+        }
+        unset($field);
+
+        foreach ($data['actions'] as &$action) {
+            if ($action['key'] !== 'order.set_confirmation_status') {
+                continue;
+            }
+            foreach ($action['config_schema'] as &$schema) {
+                if ($schema['key'] === 'status_code') {
+                    $schema['options'] = $options;
+                }
+            }
+            unset($schema);
+        }
+        unset($action);
+
+        return response()->json(['data' => $data]);
     }
 
     /** Stats cards for the list page. */

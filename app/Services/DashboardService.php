@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Closing;
+use App\Models\Company;
 use App\Models\ConfirmationStatus;
 use App\Models\DeliveryStatus;
 use App\Models\Driver;
@@ -54,17 +55,18 @@ class DashboardService
     /** Confirmation status codes by meaning — read from the configurable confirmation_statuses. */
     protected function conf(string $group): array
     {
-        $key = 'conf:'.$group;
+        $companyId = auth()->user()?->resolveCompanyId() ?? Company::default()->id;
+        $key = 'conf:'.$companyId.':'.$group;
         if (isset($this->catIds[$key])) {
             return $this->catIds[$key];
         }
-        $all = ConfirmationStatus::query()->get();
+        $all = ConfirmationStatus::query()->where('company_id', $companyId)->get();
         $codes = match ($group) {
-            'to_confirm' => $all->where('type', ConfirmationStatus::TYPE_OPEN),
-            'confirmed' => $all->where('type', ConfirmationStatus::TYPE_SUCCESS),
-            'cancelled' => $all->where('type', ConfirmationStatus::TYPE_CANCELLED),
-            'postponed' => $all->where('queue_behavior', ConfirmationStatus::BEHAVIOR_FUTURE_ONLY),
-            'no_answer' => $all->where('type', ConfirmationStatus::TYPE_WAITING)->where('queue_behavior', '!=', ConfirmationStatus::BEHAVIOR_FUTURE_ONLY),
+            'to_confirm' => $all->filter(fn ($s) => $s->is_default || $s->queue_behavior === ConfirmationStatus::BEHAVIOR_DUE_QUEUE || $s->category === ConfirmationStatus::CATEGORY_WAITING),
+            'confirmed' => $all->where('counts_as_confirmed', true),
+            'cancelled' => $all->where('counts_as_failure', true),
+            'postponed' => $all->filter(fn ($s) => $s->queue_behavior === ConfirmationStatus::BEHAVIOR_FUTURE_ONLY || $s->category === ConfirmationStatus::CATEGORY_RECALL),
+            'no_answer' => $all->where('category', ConfirmationStatus::CATEGORY_NO_ANSWER),
             default => collect(),
         };
 
@@ -135,8 +137,8 @@ class DashboardService
                 ->map(fn (Order $o) => [
                     'id' => $o->id, 'reference' => $o->reference(), 'customer_name' => $o->customer_name, 'city' => $o->shippingCity(),
                     'amount' => (float) $o->total_price, 'confirmation_status' => $o->confirmation_status,
-                    'confirmation_status_label' => ConfirmationStatus::labelFor($o->confirmation_status),
-                    'confirmation_status_color' => ConfirmationStatus::colorFor($o->confirmation_status),
+                    'confirmation_status_label' => ConfirmationStatus::labelFor($o->confirmation_status, $o->company_id),
+                    'confirmation_status_color' => ConfirmationStatus::colorFor($o->confirmation_status, $o->company_id),
                     'delivery_status' => $o->deliveryStatus ? ['id' => $o->deliveryStatus->id, 'name' => $o->deliveryStatus->name, 'color' => $o->deliveryStatus->color, 'icon' => $o->deliveryStatus->icon, 'is_active' => $o->deliveryStatus->is_active] : null,
                     'created_at' => $o->created_at?->toIso8601String(),
                 ]),

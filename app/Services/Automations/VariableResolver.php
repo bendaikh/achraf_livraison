@@ -61,6 +61,7 @@ class VariableResolver
                 'order_number' => $subject->order_number,
                 'status' => $subject->status,
                 'confirmation_status' => $subject->confirmation_status,
+                'confirmation_category' => $subject->confirmationStatusDefinition()?->category,
                 'delivery_status' => $subject->delivery_status,
                 'financial_status' => $subject->financial_status,
                 'city' => $address['city'] ?? null,

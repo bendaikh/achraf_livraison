@@ -9,6 +9,7 @@ use App\Services\Automations\Actions\RemoveClientTagAction;
 use App\Services\Automations\Actions\CarrierCreateParcelAction;
 use App\Services\Automations\Actions\CarrierRefreshTrackingAction;
 use App\Services\Automations\Actions\ChangeStatusAction;
+use App\Services\Automations\Actions\SetConfirmationStatusAction;
 use App\Services\Automations\Actions\NotifyAction;
 use App\Services\Automations\Actions\ShopifyAddOrderNoteAction;
 use App\Services\Automations\Actions\ShopifyCreateFulfillmentAction;
@@ -104,6 +105,7 @@ class RegisterBuiltinAutomations
         $fields = [
             ['status', 'Statut commande', 'string', 'commandes'],
             ['confirmation_status', 'Confirmation', 'string', 'confirmation'],
+            ['confirmation_category', 'Catégorie de confirmation', 'string', 'confirmation'],
             ['delivery_status', 'Statut livraison', 'string', 'livraison'],
             ['financial_status', 'Paiement', 'string', 'commandes'],
             ['city', 'Ville', 'string', 'adresse'],
@@ -162,6 +164,7 @@ class RegisterBuiltinAutomations
     {
         $registry->registerAction(new AddNoteAction);
         $registry->registerAction(new ChangeStatusAction);
+        $registry->registerAction(new SetConfirmationStatusAction);
         $registry->registerAction(new AssignAgentAction);
         $registry->registerAction(new NotifyAction);
         $registry->registerAction(new WebhookExternalAction);

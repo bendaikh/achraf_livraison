@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Closing;
+use App\Models\Company;
 use App\Models\ConfirmationStatus;
 use App\Models\DeliveryStatus;
 use App\Models\Mission;
@@ -64,8 +65,9 @@ class CentreService
 
     public function toConfirm(): int
     {
+        $companyId = auth()->user()?->resolveCompanyId() ?? Company::default()->id;
         $q = Order::query()->inWorkflowQueues();
-        $this->confirmation->applyFilter($q, ConfirmationStatus::defaultCode());
+        $this->confirmation->applyFilter($q, ConfirmationStatus::defaultCode($companyId), $companyId);
 
         return $q->count();
     }
@@ -159,7 +161,7 @@ class CentreService
         Order::query()
             ->select(['id', 'line_items', 'delivery_status'])
             ->where(fn ($q) => $q->whereNull('delivery_status')->orWhereIn('delivery_status', $this->codes(['avant_livraison'])))
-            ->whereNotIn('confirmation_status', ConfirmationStatus::codesOfType(ConfirmationStatus::TYPE_CANCELLED) ?: ['__none__'])
+            ->whereNotIn('confirmation_status', ConfirmationStatus::codesWithFlag('counts_as_failure', auth()->user()?->resolveCompanyId() ?? Company::default()->id) ?: ['__none__'])
             ->whereDoesntHave('speedafShipments', $this->activeShipment())
             ->whereDoesntHave('ozonShipments', $this->activeOzon())
             ->whereDoesntHave('siftShipments', $this->activeSift())

@@ -52,7 +52,8 @@ class OrderAutomationObserver
                 $d->orderStatusChanged($order, $order->getOriginal('delivery_status'), $order->delivery_status);
             }
             if (array_key_exists('confirmation_status', $changes)) {
-                $d->orderConfirmationChanged($order, $order->getOriginal('confirmation_status'), $order->confirmation_status);
+                $meta = is_array($order->confirmationChangeContext ?? null) ? $order->confirmationChangeContext : [];
+                $d->orderConfirmationChanged($order, $order->getOriginal('confirmation_status'), $order->confirmation_status, $meta);
             }
             if (array_key_exists('financial_status', $changes)) {
                 $d->dispatch('order.payment_changed', $d->companyIdForOrder($order), $order, [

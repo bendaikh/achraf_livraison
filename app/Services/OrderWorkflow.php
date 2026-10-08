@@ -103,45 +103,15 @@ class OrderWorkflow
      */
     public function changeConfirmation(Order $order, string $code, ?User $user = null, array $extra = []): Order
     {
-        $status = ConfirmationStatus::query()->where('code', $code)->first();
-        if (! $status || ! $status->is_active) {
-            throw ValidationException::withMessages(['confirmation_status' => 'Statut de confirmation inconnu ou désactivé.']);
-        }
-        if ($order->confirmation_status === $status->code) {
-            return $order;
-        }
-        $user ??= CurrentUser::get();
-
-        return DB::transaction(function () use ($order, $status, $user, $extra) {
-            $order->confirmation_status = $status->code;
-            $order->confirmation_acted_by = $user?->id;
-            $order->confirmation_acted_at = now();
-            if ($status->type === ConfirmationStatus::TYPE_SUCCESS) {
-                $order->confirmed_by ??= $user?->id;
-                $order->confirmed_at ??= now();
-                $order->postponed_until = null;
-                $order->cancellation_reason = null;
-            }
-            if ($status->type === ConfirmationStatus::TYPE_CANCELLED && ! empty($extra['reason'])) {
-                $order->cancellation_reason = $extra['reason'];
-            }
-            if ($status->queue_behavior === ConfirmationStatus::BEHAVIOR_FUTURE_ONLY && ! empty($extra['recall_at'])) {
-                $order->postponed_until = Carbon::parse($extra['recall_at']);
-            }
-            $order->appendHistory($status->code === Order::CONFIRMATION_CONFIRMED ? 'confirmed' : $status->code, $status->name, $user);
-            $order->save();
-
-            $this->recordConfirmation($order, $status, $user);
-
-            return $order;
-        });
+        return app(\App\Services\Confirmation\ConfirmationStatusChanger::class)
+            ->changeByCode($order, $code, $user, $extra);
     }
 
     /**
      * Records a confirmation change in the immutable status history and, when the order is
      * confirmed, applies the configured initial delivery status ("À attribuer").
      */
-    public function recordConfirmation(Order $order, ConfirmationStatus $status, ?User $user = null): void
+    public function recordConfirmation(Order $order, ConfirmationStatus $status, ?User $user = null, array $data = []): void
     {
         $order->status_changed_at = now();
         $order->saveQuietly();
@@ -152,10 +122,14 @@ class OrderWorkflow
             'status_code' => $status->code,
             'status_name' => $status->name,
             'status_color' => $status->color,
+            'status_category' => $status->category,
+            'from_status_name' => $data['from_status_name'] ?? null,
+            'note' => $data['comment'] ?? ($data['reason'] ?? null),
+            'data' => $data ?: null,
             'user_id' => $user?->id ?? CurrentUser::id(),
         ]);
 
-        if ($status->type === ConfirmationStatus::TYPE_SUCCESS && ! $order->delivery_status && ($initial = $this->statusOnConfirm())) {
+        if ($status->counts_as_confirmed && ! $order->delivery_status && ($initial = $this->statusOnConfirm())) {
             $this->applyStatus($order, $initial, [], 'Commande confirmée', $user);
         }
     }

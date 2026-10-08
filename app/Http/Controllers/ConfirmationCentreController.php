@@ -25,15 +25,23 @@ class ConfirmationCentreController extends Controller
 {
     public function __construct(private readonly ConfirmationStatusService $statuses) {}
 
+    private function assertOrderAccessible(Request $request, Order $order): void
+    {
+        abort_unless(Order::query()->where('company_id', $request->user()->resolveCompanyId())->visibleTo($request->user())->whereKey($order->id)->exists(), 404);
+    }
+
     /** Same filter + search + order as GET /api/confirmation/orders. */
     public static function queueQuery(ConfirmationStatusService $statuses, string $filter, string $search = '', string $agent = '', ?int $me = null): Builder
     {
         $q = Order::query()->inWorkflowQueues();
+        $companyId = null;
         if ($user = request()->user()) {
             $q->visibleTo($user);
+            $companyId = $user->resolveCompanyId();
+            $q->where('company_id', $companyId);
         }
         self::applyAgentFilter($q, $agent, $me);
-        $statuses->applyFilter($q, $filter !== '' && $filter !== 'all' ? $filter : ConfirmationStatus::defaultCode());
+        $statuses->applyFilter($q, $filter !== '' && $filter !== 'all' ? $filter : ConfirmationStatus::defaultCode($companyId), $companyId);
         if ($search !== '') {
             $q->where(function ($w) use ($search) {
                 $w->where('name', 'like', "%{$search}%")
@@ -62,8 +70,10 @@ class ConfirmationCentreController extends Controller
     public function stats(Request $request): JsonResponse
     {
         $user = $request->user();
+        $companyId = $user->resolveCompanyId();
         $today = now()->startOfDay();
-        $failedCodes = ConfirmationStatus::query()->where('is_terminal', true)->where('code', '!=', Order::CONFIRMATION_CONFIRMED)->pluck('code')->all();
+        $confirmedCodes = ConfirmationStatus::codesWithFlag('counts_as_confirmed', $companyId) ?: [Order::CONFIRMATION_CONFIRMED];
+        $failedCodes = ConfirmationStatus::codesWithFlag('counts_as_failure', $companyId);
 
         $calls = fn (Carbon $from, ?Carbon $to = null, ?int $userId = null) => OrderCall::query()
             ->where('called_at', '>=', $from)->when($to, fn ($q) => $q->where('called_at', '<', $to))
@@ -84,26 +94,41 @@ class ConfirmationCentreController extends Controller
             ];
         };
 
-        $queue = self::queueQuery($this->statuses, ConfirmationStatus::defaultCode());
+        $queue = self::queueQuery($this->statuses, ConfirmationStatus::defaultCode($companyId));
+        $countBase = Order::query()->inWorkflowQueues()->where('company_id', $companyId)->visibleTo($user);
+        $grouped = $this->statuses->groupedStatusRows($countBase);
+        $byStatus = [];
+        $other = 0;
+        foreach (ConfirmationStatus::cachedAll($companyId)->where('is_active', true) as $status) {
+            $count = (int) ($grouped[$status->code]['total'] ?? 0);
+            $byStatus[] = ['code' => $status->code, 'name' => $status->name, 'count' => $count, 'show_in_filters' => (bool) $status->show_in_filters];
+            if (! $status->show_in_filters) {
+                $other += $count;
+            }
+        }
 
         return response()->json([
             'calls' => $metric(fn ($from, $to = null) => $calls($from, $to)),
-            'confirmed' => $metric(fn ($from, $to = null) => $events([Order::CONFIRMATION_CONFIRMED], $from, $to)),
+            'confirmed' => $metric(fn ($from, $to = null) => $events($confirmedCodes, $from, $to)),
             'failed' => $metric(fn ($from, $to = null) => $events($failedCodes, $from, $to)),
             'to_confirm' => (clone $queue)->count(),
-            'postponed_due' => Order::query()->inWorkflowQueues()->whereNotNull('postponed_until')->where('postponed_until', '<=', now())
-                ->whereIn('confirmation_status', ConfirmationStatus::codesWithBehavior(ConfirmationStatus::BEHAVIOR_FUTURE_ONLY))->count(),
+            'postponed_due' => Order::query()->inWorkflowQueues()->where('company_id', $companyId)->whereNotNull('postponed_until')->where('postponed_until', '<=', now())
+                ->whereIn('confirmation_status', ConfirmationStatus::codesWithBehavior(ConfirmationStatus::BEHAVIOR_FUTURE_ONLY, $companyId) ?: ['__none__'])->count(),
             'mine' => [
                 'calls_today' => $calls($today, null, $user->id),
-                'confirmed_today' => $events([Order::CONFIRMATION_CONFIRMED], $today, null, $user->id),
+                'confirmed_today' => $events($confirmedCodes, $today, null, $user->id),
                 'failed_today' => $events($failedCodes, $today, null, $user->id),
             ],
+            'by_status' => $byStatus,
+            'other_statuses' => $other,
+            'recall' => $this->statuses->recallBuckets($countBase, $companyId),
         ]);
     }
 
     /** GET /api/confirmation/orders/{order}/siblings?filter=&search= — previous / next in the queue. */
     public function siblings(Request $request, Order $order): JsonResponse
     {
+        $this->assertOrderAccessible($request, $order);
         $ids = self::queueQuery($this->statuses, trim((string) $request->query('filter', '')), trim((string) $request->query('search', '')), (string) $request->query('agent', ''), $request->user()->id)
             ->pluck('id')->all();
         $pos = array_search($order->id, $ids, true);
@@ -120,6 +145,7 @@ class ConfirmationCentreController extends Controller
     /** POST /api/confirmation/orders/{order}/calls — « Enregistrer l'appel ». */
     public function logCall(Request $request, Order $order): JsonResponse
     {
+        $this->assertOrderAccessible($request, $order);
         $data = $request->validate([
             'result' => ['required', 'in:'.implode(',', array_keys(OrderCall::RESULTS))],
             'channel' => ['nullable', 'in:'.implode(',', array_keys(OrderCall::CHANNELS))],
@@ -153,6 +179,7 @@ class ConfirmationCentreController extends Controller
     /** POST /api/confirmation/orders/{order}/discounts {type: amount|percent, value, reason} */
     public function addDiscount(Request $request, Order $order): JsonResponse
     {
+        $this->assertOrderAccessible($request, $order);
         $data = $request->validate([
             'type' => ['required', 'in:amount,percent'],
             'value' => ['required', 'numeric', 'gt:0'],
@@ -227,6 +254,7 @@ class ConfirmationCentreController extends Controller
     /** DELETE /api/confirmation/orders/{order}/discounts/{discount} — kept in history (soft removal). */
     public function removeDiscount(Request $request, Order $order, OrderDiscount $discount): JsonResponse
     {
+        $this->assertOrderAccessible($request, $order);
         abort_unless($discount->order_id === $order->id, 404);
         if ($discount->removed_at) {
             return response()->json(['message' => 'Cette remise est déjà retirée.'], 422);
