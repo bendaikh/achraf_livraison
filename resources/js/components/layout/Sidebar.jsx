@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { modulesForUser, getActiveModule } from '../../navigation';
 import { useSidebar } from './SidebarContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -44,27 +44,17 @@ function ModuleItem({ mod, collapsed, onNavigate }) {
 }
 
 export default function Sidebar() {
-    const { collapsed, mobileOpen, closeMobile, toggleCollapsed } = useSidebar();
+    const { collapsed, closeMobile, toggleCollapsed } = useSidebar();
     const { user } = useAuth();
-    const compact = collapsed && !mobileOpen;
+    const compact = collapsed;
     const navModules = modulesForUser(user);
 
     return (
         <>
-            {mobileOpen ? (
-                <button
-                    type="button"
-                    aria-label="Fermer le menu"
-                    className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-[1px] lg:hidden"
-                    onClick={closeMobile}
-                />
-            ) : null}
-
             <aside
                 className={[
-                    'fixed inset-y-0 left-0 z-50 flex flex-col bg-[#1e293b] text-white transition-all duration-300',
+                    'fixed inset-y-0 left-0 z-50 hidden flex-col bg-[#1e293b] text-white transition-all duration-300 lg:flex',
                     compact ? 'w-[80px]' : 'w-[260px]',
-                    mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
                 ].join(' ')}
             >
                 <div
@@ -79,14 +69,6 @@ export default function Sidebar() {
                             <BrandLogo badge={user?.is_livreur ? 'Espace livreur' : null} />
                         </div>
                     ) : null}
-                    <button
-                        type="button"
-                        onClick={closeMobile}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-300 hover:bg-slate-700 lg:hidden"
-                        aria-label="Fermer"
-                    >
-                        <X className="h-4 w-4" />
-                    </button>
                 </div>
 
                 <nav className="mt-4 flex-1 space-y-1 overflow-y-auto px-3 pb-4">

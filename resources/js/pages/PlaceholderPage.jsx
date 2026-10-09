@@ -4,12 +4,21 @@ import { useAuth } from '../contexts/AuthContext';
 
 const titles = {
     '/': 'Vue générale',
+    '/centre': 'Centre',
     '/commandes': 'Commandes',
+    '/produits': 'Produits',
+    '/confirmation': 'Confirmation',
+    '/clients': 'Clients',
+    '/retours': 'Retours & échanges',
     '/whatsapp': 'Messagerie WhatsApp',
     '/livreurs': 'Livreurs',
     '/cloture': 'Clôture du jour',
+    '/automatisations': 'Automatisations',
+    '/equipe': 'Équipe',
     '/utilisateurs': 'Utilisateurs',
     '/parametres': 'Paramètres',
+    '/compte': 'Mon compte',
+    '/compte/parametres': 'Paramètres personnels',
     '/integrations/ozone': 'Ozone Delivery',
     '/integrations/shopify': 'Shopify',
 };
@@ -22,9 +31,11 @@ export default function PlaceholderPage() {
 
     return (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                {module?.label}
-            </p>
+            {module?.label ? (
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    {module.label}
+                </p>
+            ) : null}
             <h1 className="mt-2 text-2xl font-bold text-slate-900">{title}</h1>
             <p className="mt-2 text-sm font-medium text-slate-500">
                 Section prête — le contenu sera ajouté ensuite.

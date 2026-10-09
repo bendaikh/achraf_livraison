@@ -241,6 +241,14 @@ export function getActiveModule(pathname, user) {
     return list[0] || modules[0];
 }
 
+export const quickAccess = [
+    { id: 'dashboard', label: 'Accueil', to: '/', icon: LayoutDashboard, end: true },
+    { id: 'commandes', label: 'Commandes', to: '/commandes', icon: ShoppingBag },
+    { id: 'whatsapp', label: 'WhatsApp', to: '/whatsapp', icon: MessageCircle },
+    { id: 'clients', label: 'Clients', to: '/clients', icon: Contact },
+    { id: 'produits', label: 'Produits', to: '/produits', icon: Boxes },
+];
+
 export function homePathForUser(user) {
     if (user?.is_livreur || user?.role === 'livreur') {
         return '/mes-missions';

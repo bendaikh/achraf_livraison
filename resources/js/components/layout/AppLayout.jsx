@@ -6,6 +6,8 @@ import { pageTitle } from '../../lib/brand';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import BodyNav from './BodyNav';
+import MobileDrawer from './MobileDrawer';
+import BottomNav from './BottomNav';
 import { SidebarProvider, useSidebar } from './SidebarContext';
 import { WhatsAppUnreadProvider } from '../../contexts/WhatsAppUnreadContext';
 
@@ -22,6 +24,7 @@ function LayoutShell() {
     return (
         <div className="min-h-screen bg-[#f1f5f9]">
             <Sidebar />
+            <MobileDrawer />
             <div
                 className={[
                     'min-w-0 transition-[padding] duration-300',
@@ -30,9 +33,10 @@ function LayoutShell() {
             >
                 <Header />
                 <BodyNav />
-                <main className="px-3 py-4 sm:px-6 sm:py-6">
+                <main className="px-3 py-4 pb-[calc(4.75rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-6 lg:pb-6">
                     <Outlet />
                 </main>
+                <BottomNav />
             </div>
         </div>
     );
